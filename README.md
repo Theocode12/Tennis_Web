@@ -69,7 +69,3 @@ docker run -d --name redis -p 6379:6379 redis
 
 ## **5. Future Plans**  
 We plan to expand beyond just tennis! More games will be incorporated to make the platform a **relaxing and fun hub** for players and spectators alike. Stay tuned!  
-
----
-
-This version is **clear, concise, and engaging** while maintaining flexibility for future expansions. 🚀 Let me know if you'd like any tweaks!
