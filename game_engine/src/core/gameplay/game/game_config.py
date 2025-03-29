@@ -1,6 +1,6 @@
 from src.core.models import Team, Set
 from src.core.rules import RuleEvaluator
-from game_engine.src.core.gameplay.game.match_type import MatchType
+from src.core.gameplay.game.match_type import MatchType
 
 
 class GameConfig:

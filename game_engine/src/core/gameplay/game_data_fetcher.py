@@ -1,4 +1,4 @@
-from src.core.gameplay.game_play import GamePlay
+from game_engine.src.core.gameplay.game import GamePlay
 from typing import Dict
 
 # Manages the loaded game from the redis for now a file

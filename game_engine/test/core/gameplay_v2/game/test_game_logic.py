@@ -2,7 +2,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 from src.core.models import Set, Team, TeamIndex
 from src.core.models.events.game import GameEventType
-from src.core.gameplay.game.game_event import GameEventManager
 from src.core.gameplay.game.game_config import GameConfig
 from src.core.gameplay.game.point_allocator import PointAllocator
 from src.core.gameplay.game.game_scores_payload import ScorePayload
@@ -15,7 +14,6 @@ class TestGameLogic(unittest.TestCase):
         self.team1 = MagicMock(spec=Team)
         self.team2 = MagicMock(spec=Team)
         self.set_manager = MagicMock(spec=Set)
-        self.event_manager = MagicMock(spec=GameEventManager)
         self.point_allocator = MagicMock(spec=PointAllocator)
         self.rule_eval = MagicMock()
         self.game_config = GameConfig(
@@ -29,7 +27,6 @@ class TestGameLogic(unittest.TestCase):
         # Initialize GameLogic
         self.game_logic = GameLogic(
             config=self.game_config,
-            event_manager=self.event_manager,
             point_allocator=self.point_allocator,
         )
 

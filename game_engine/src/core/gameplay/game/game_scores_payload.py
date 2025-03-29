@@ -9,7 +9,6 @@ class ScorePayload:
 
     def to_dict(self):
         return {
-            "team1": self.team1,
-            "team2": self.team2,
             "set": self.set_obj.transform_set_data(),
+            "game_points": [self.team1.get_game_points(), self.team2.get_game_points()]
         }

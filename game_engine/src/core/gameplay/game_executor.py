@@ -1,7 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor, Future
-from typing import Dict
-from threading import Lock
-from src.core.gameplay.game_play import GamePlay
+from game_engine.src.core.gameplay.game import GamePlay
 
 
 class GameExecutor:

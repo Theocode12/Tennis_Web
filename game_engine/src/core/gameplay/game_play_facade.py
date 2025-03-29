@@ -7,7 +7,9 @@ class GamePlayFacade(EventSubscriber):
     ) -> None:
         pass
 
-
+    def validator():
+        pass
+    
     async def build(self):
         pass
 

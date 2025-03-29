@@ -2,6 +2,8 @@ from src.core.models import Set, Team, TeamIndex
 from src.core.gameplay.game.game_config import GameConfig
 from src.core.gameplay.game.point_allocator import PointAllocator
 from src.core.gameplay.game.game_scores_payload import ScorePayload
+from src.store.decorators.store_scores import store_scores
+from src.store.file_storage import FileStorage
 from typing import Optional
 
 
@@ -17,7 +19,7 @@ class GameLogic:
         self.point_allocator.set_teams([config.team1, config.team2])
         self.game_over = False
 
-    def game_over(self) -> bool:
+    def is_game_over(self) -> bool:
         return self.game_over
 
     def generate_score_payload(self) -> dict:
@@ -125,7 +127,8 @@ class GameLogic:
             f"Set: {self._set_manager.transform_set_data()}"
         )
 
-    def execute(self):
+    @store_scores(FileStorage('games'))
+    async def execute(self):
         """Manage the progression of the game."""
         try:
             self.check_and_handle_match_winner()

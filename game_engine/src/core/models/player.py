@@ -1,4 +1,6 @@
 class Player:
+    visible_fields = ['name']
+
     def __init__(self, name: str):
         self.name: str = name
         self.team = None  # Reference to a Team object
