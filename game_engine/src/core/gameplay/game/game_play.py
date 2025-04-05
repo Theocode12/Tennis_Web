@@ -19,7 +19,8 @@ class GamePlay:
             while not self.game_logic.is_game_over():
                 await self.game_logic.execute()
         except Exception as e:
-            raise e
             print(f"Error in Game {self.game_id}: {e}")
+            raise e
+            
         finally:
             print(f"Game {self.game_id} exiting.")

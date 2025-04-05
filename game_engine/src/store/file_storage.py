@@ -1,19 +1,21 @@
 import json
 import os
 from .base_storage import BaseStorage
+from src.store.game_data import GameData
 from dataclasses import asdict
 
 
 class FileStorage(BaseStorage):
-    def __init__(self, directory):
+    def __init__(self, directory: str):
         self.directory = directory
+        print(self.directory)
         os.makedirs(directory, exist_ok=True)  # Ensure the directory exists
 
     def get_file_path(self, game_id: str) -> str:
         """Returns the file path for a given game_id"""
         return os.path.join(self.directory, f"{game_id}.json")
 
-    async def store_game_data(self, data):
+    async def store_game_data(self, data: GameData):
         """Stores game metadata in a JSON file"""
         file_path = self.get_file_path(data.game_id)
 

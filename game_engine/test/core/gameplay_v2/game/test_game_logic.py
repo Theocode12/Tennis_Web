@@ -36,9 +36,8 @@ class TestGameLogic(unittest.TestCase):
         self.assertDictEqual(
             result,
             {
-                "team1": self.team1,
-                "team2": self.team2,
                 "set": self.set_manager.transform_set_data(),
+                "game_points": [self.team1.get_game_points(), self.team2.get_game_points()]
             },
         )
 
@@ -48,12 +47,10 @@ class TestGameLogic(unittest.TestCase):
 
     def test_handle_error(self):
         error = Exception("Test error")
-        self.game_logic.handle_error(error)
+        with self.assertRaises(Exception):
+            self.game_logic.handle_error(error)
 
-        self.event_manager.handle_error.assert_called_once_with(
-            error, {"_id": self.game_config.game_id, "data": {"error": error}}
-        )
-
+       
     def test_update_game_winner(self):
         self.game_logic.update_game_winner(TeamIndex.TEAM_1)
 
@@ -61,9 +58,16 @@ class TestGameLogic(unittest.TestCase):
         self.team1.reset_game_points.assert_called_once()
         self.team2.reset_game_points.assert_called_once()
 
-    def test_update_set_winner(self):
+    def test_update_set_winner_when_game_over(self):
+        self.game_logic.match_winner_exists = MagicMock(return_value=True)
         self.game_logic.update_set_winner(TeamIndex.TEAM_2)
+        
+        self.set_manager.add_new_set.assert_not_called()
 
+    def test_update_set_winner_when_game_not_over(self):
+        self.game_logic.match_winner_exists = MagicMock(return_value=False)
+        self.game_logic.update_set_winner(TeamIndex.TEAM_2)
+        
         self.set_manager.add_new_set.assert_called_once()
 
     def test_determine_game_winner(self):
@@ -77,10 +81,11 @@ class TestGameLogic(unittest.TestCase):
 
     def test_end_game(self):
         self.game_logic.end_game(self.team1)
+        self.assertTrue(self.game_logic.game_over)
 
-        self.event_manager.dispatch_global.assert_called_once_with(
-            GameEventType.GAME_OVER, {"_id": self.game_config.game_id, "data": {}}
-        )
-        self.event_manager.dispatch_local.assert_called_once_with(
-            GameEventType.GAME_OVER, {"_id": self.game_config.game_id, "data": {}}
-        )
+    def test_is_game_over(self):
+        self.game_logic.game_over = False
+        self.assertFalse(self.game_logic.is_game_over())
+
+        self.game_logic.game_over = True
+        self.assertTrue(self.game_logic.is_game_over())

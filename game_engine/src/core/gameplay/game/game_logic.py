@@ -18,15 +18,14 @@ class GameLogic:
         self._set_manager: Set = config.set_manager
         self.point_allocator.set_teams([config.team1, config.team2])
         self.game_over = False
+        self.scores = ScorePayload(self.config.team1, self.config.team2, self._set_manager)
 
     def is_game_over(self) -> bool:
         return self.game_over
 
     def generate_score_payload(self) -> dict:
         """Generate a dictionary payload representing the current game score."""
-        return ScorePayload(
-            self.config.team1, self.config.team2, self._set_manager
-        ).to_dict()
+        return self.scores.to_dict()
 
     def allocate_points(self):
         """Allocate points randomly between teams."""
@@ -54,7 +53,16 @@ class GameLogic:
         """Update the set winner, record the win, and start a new set if applicable."""
         if winning_team_index is None:
             return
-        self._set_manager.add_new_set()
+        
+        if not self.match_winner_exists():
+            self._set_manager.add_new_set()
+
+    def match_winner_exists(self):
+        return self.config.rule_eval.check_match_winner(
+            self.sets_team_has_won(TeamIndex.TEAM_1)
+        ) or self.config.rule_eval.check_match_winner(
+            self.sets_team_has_won(TeamIndex.TEAM_2)
+        )
 
     def determine_game_winner(self) -> int:
         """Determine if any team has won the current game."""
@@ -95,12 +103,10 @@ class GameLogic:
         if self.config.rule_eval.check_match_winner(
             self.sets_team_has_won(TeamIndex.TEAM_1)
         ):
-            self._set_manager.pop_last_set()
             self.end_game(self.config.team1)
         elif self.config.rule_eval.check_match_winner(
             self.sets_team_has_won(TeamIndex.TEAM_2)
         ):
-            self._set_manager.pop_last_set()
             self.end_game(self.config.team2)
 
     def sets_team_has_won(self, team_index) -> int:
@@ -131,11 +137,12 @@ class GameLogic:
     async def execute(self):
         """Manage the progression of the game."""
         try:
-            self.check_and_handle_match_winner()
+            # self.check_and_handle_match_winner()
             self.update_game_winner(self.determine_game_winner())
             self.log_scores()
             self.update_set_winner(self.determine_set_winner())
-
+            self.check_and_handle_match_winner()
+            
             # Randomly give points to a player for the next round
             self.allocate_points()
         except Exception as e:
