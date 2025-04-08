@@ -1,4 +1,6 @@
-class SchedulerManager:
+from .scheduler import Scheduler
+from app.lib.singleton_metaclass import SingletonMeta
+class SchedulerManager(metaclass=SingletonMeta):
     def __init__(self):
         self.schedulers: dict[str, Scheduler] = {}
 

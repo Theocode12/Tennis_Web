@@ -1,27 +1,40 @@
-class Scheduler:
-    def __init__(self):
-        self.delay = delay
+from typing import Any, Callable, Coroutine
+from ..publisher.message_broker import MessageBroker
+
+class BaseScheduler:
+    def __init__(self, game_id, broker: MessageBroker):
         self.game_id = game_id
-        self.clients: list[str] = []
+        self.publisher = broker
 
-    def start(self):
+    async def publish(self, channel, message):
+        """Publish data to the game channel."""
+        return await self.publisher.publish(self.game_id, channel, message)
+
+    def subscribe(self, channel):
+        pass
+    
+    async def cleanup(self):
         pass
 
-    def pause(self):
+class ControlScheduler(BaseScheduler):
+    async def start(self):
         pass
 
-    def resume(self):
+    async def pause(self):
         pass
 
-    def adjust_speed(self, new_speed):
+    async def resume(self):
         pass
 
-    def attach_client(self, client_id):
+    async def adjust_speed(self, new_speed):
         pass
 
-    def detach_client(self, client_id):
-        pass
 
-    def has_active_client(self)
-        pass
+class PvAIScheduler(ControlScheduler):
+    pass
 
+class PvPControlScheduler(ControlScheduler):
+    pass
+
+class SpectatorScheduler(BaseScheduler):
+    pass
