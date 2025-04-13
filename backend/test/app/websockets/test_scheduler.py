@@ -5,8 +5,7 @@ import tempfile
 import json
 import asyncio
 from pathlib import Path
-from collections import deque
-from unittest.mock import AsyncMock, patch # We'll need AsyncMock
+from unittest.mock import AsyncMock # We'll need AsyncMock
 
 # Adjust imports based on your project structure
 from backend.app.scheduler.scheduler import GameScheduler, BaseScheduler

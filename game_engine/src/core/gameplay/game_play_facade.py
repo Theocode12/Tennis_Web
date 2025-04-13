@@ -1,4 +1,4 @@
-from src.core.models.events import EventAggregator, EventSubscriber
+from src.core.models.events import EventSubscriber
 
 # collect dict data and builds the game
 class GamePlayFacade(EventSubscriber):

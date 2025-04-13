@@ -1,4 +1,3 @@
-from typing import Optional
 from src.core.constants import TennisConstantsBase
 
 

@@ -75,13 +75,13 @@ class GameNamespace(AsyncNamespace):
 
         try:
             validated_data = route_definition["schema"](**data).model_dump()
-        except ValidationError as e:
+        except ValidationError:
             await self.emit(ClientEvent.ERROR, {"error": "data schema is invalid"}, to=sid)
             return
         try:
             handler = route_definition['handler'](self)
             await handler.handle(sid, validated_data)
-        except Exception as e:
+        except Exception:
             await self.emit(
                 ClientEvent.ERROR.value,
                 {"error": f"An internal error occurred while processing '{action}'."},

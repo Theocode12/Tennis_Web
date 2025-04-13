@@ -2,17 +2,16 @@ import unittest
 import tempfile
 import json
 import asyncio
-import os
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Type
-from unittest.mock import patch, AsyncMock, MagicMock
+from typing import Dict, List
+from unittest.mock import patch
 
 # --- Adjust imports based on actual project structure ---
 # Core components under test and dependencies
 from backend.app.scheduler.manager import SchedulerManager
-from backend.app.scheduler.scheduler import GameScheduler, BaseScheduler
-from backend.app.scheduler.game_feeder import BaseGameFeeder, RedisGameFeeder, FileGameFeeder
+from backend.app.scheduler.scheduler import GameScheduler
+from backend.app.scheduler.game_feeder import BaseGameFeeder, FileGameFeeder
 from backend.app.broker.InMemoryMessageBroker import InMemoryMessageBroker # Use in-memory for testing
 from backend.app.shared.lib.singleton_metaclass import SingletonMeta
 from db.file_storage import BackendFileStorage # Assuming this is the correct path

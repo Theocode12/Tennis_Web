@@ -1,10 +1,8 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from src.core.models import Set, Team, TeamIndex
-from src.core.models.events.game import GameEventType
 from src.core.gameplay.game.game_config import GameConfig
 from src.core.gameplay.game.point_allocator import PointAllocator
-from src.core.gameplay.game.game_scores_payload import ScorePayload
 from src.core.gameplay.game.game_logic import GameLogic
 
 

@@ -33,7 +33,8 @@ class BaseGameFeeder(ABC):
     async def get_next_score(self) -> AsyncIterator[Any]:
         """Yield scores with batched loading"""
         while (not self._exhausted) or (self._buffer):
-            if not self._exhausted: await self._refill_buffer()
+            if not self._exhausted: 
+                await self._refill_buffer()
         
             yield self._buffer.popleft()
 

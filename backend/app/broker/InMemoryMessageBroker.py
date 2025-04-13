@@ -54,7 +54,8 @@ class InMemoryMessageBroker(MessageBroker):
             channels_list = [channels]
         elif not channels:
              async def empty_generator():
-                 if False: yield # Never yield anything
+                if False:
+                    yield # Never yield anything
              return empty_generator()
         else:
             channels_list = channels

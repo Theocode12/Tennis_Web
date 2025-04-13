@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from src.store.decorators.store_scores import store_scores  # Import the decorator
 
 # Sample async function to decorate

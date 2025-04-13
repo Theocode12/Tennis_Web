@@ -2,7 +2,7 @@ from socketio import AsyncServer
 from backend.app.broker.message_broker import MessageBroker
 from backend.app.core.ws_auth import AuthService
 from backend.app.scheduler.manager import SchedulerManager
-from typing import Set, Dict 
+from typing import Dict 
 import asyncio
 
 class AppContext:

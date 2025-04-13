@@ -2,7 +2,6 @@
 
 import unittest
 import tempfile
-import shutil
 from pathlib import Path
 
 # Assuming BackendFileStorage is accessible, adjust the import path if needed

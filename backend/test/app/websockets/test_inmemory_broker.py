@@ -1,6 +1,5 @@
 import asyncio
 import unittest
-from collections import deque, defaultdict 
 from typing import List, Any, AsyncIterator, Set
 
 from backend.app.broker.InMemoryMessageBroker import InMemoryMessageBroker
@@ -225,7 +224,7 @@ class TestInMemoryMessageBroker(unittest.IsolatedAsyncioTestCase):
             # This loop should not run or yield anything other than return silently or raise
             async for msg in subscriber_gen:
                  messages_after_shutdown.append(msg)
-        except Exception as e:
+        except Exception:
             pass # Might potentially raise errors after shutdown/close
         self.assertListEqual(messages_after_shutdown, [])
 
@@ -235,7 +234,7 @@ class TestInMemoryMessageBroker(unittest.IsolatedAsyncioTestCase):
         channel = "data"
 
         # Subscribe so the channel exists internally
-        sub_gen = self.broker.subscribe(game_id, channel)
+        self.broker.subscribe(game_id, channel)
         await asyncio.sleep(0.01)
 
         await self.broker.shutdown()
