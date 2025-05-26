@@ -1,232 +1,240 @@
+from __future__ import annotations
+
 import asyncio
+import configparser
 import logging
-from typing import Dict, Optional, Tuple, Type
 
-from .scheduler import GameScheduler, BaseScheduler
-from .game_feeder import BaseGameFeeder, RedisGameFeeder, FileGameFeeder
-from backend.app.broker.message_broker import MessageBroker
-from backend.app.shared.lib.singleton_metaclass import SingletonMeta
+from utils.load_config import load_config
+from utils.logger import get_logger
 
-# Setup basic logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+from app.broker.message_broker import MessageBroker
+from app.scheduler.game_feeder import BaseGameFeeder
+from app.scheduler.game_feeder_factory import create_game_feeder
+from app.scheduler.scheduler import BaseScheduler, GameScheduler
+from app.shared.lib.singleton_metaclass import SingletonMeta
+
 
 class SchedulerManager(metaclass=SingletonMeta):
     """
     Manages the lifecycle of GameScheduler instances.
 
-    Ensures that only one scheduler runs per game_id and handles
-    creation, retrieval, and cleanup.
+    Ensures only one scheduler runs per game_id. Handles creation,
+    retrieval, and cleanup of schedulers, and supports dynamic
+    game feeder resolution.
     """
-    _schedulers: Dict[str, BaseScheduler]
-    _scheduler_tasks: Dict[str, asyncio.Task]
+
+    _schedulers: dict[str, BaseScheduler]
+    _scheduler_tasks: dict[str, asyncio.Task[None]]
     _broker: MessageBroker
     _lock: asyncio.Lock
-    _feeder_factory: Dict[str, Type[BaseGameFeeder]] # Factory pattern for feeders
+    _feeder_factory: dict[str, type[BaseGameFeeder]]
 
-    def __init__(self, broker: MessageBroker) -> None:
+    def __init__(
+        self,
+        broker: MessageBroker,
+        config: configparser.ConfigParser | None = None,
+        logger: logging.Logger | None = None,
+    ) -> None:
         """
-        Initializes the SchedulerManager.
+        Initialize the SchedulerManager.
 
         Args:
-            broker: The message broker instance to be used by schedulers.
+            broker: Instance of the message broker used by schedulers.
+            config (ConfigParser): Application configuration containing
+                                    storage settings.
+            logger (Optional[Logger]): Optional logger instance. If not provided,
+                a default logger is retrieved using `get_logger()`.
         """
-        if hasattr(self, '_lock'): # Avoid re-initialization in Singleton
-             return
-        logger.info("Initializing SchedulerManager...")
+        self.logger = logger or get_logger()
+        self.config = config or load_config()
+        self.logger.info("Initializing SchedulerManager...")
+        self._broker = broker
         self._schedulers = {}
         self._scheduler_tasks = {}
-        self._broker = broker
+        self._background_tasks: set[asyncio.Task[None]] = set()
         self._lock = asyncio.Lock()
-        # Register available feeder types
-        self._feeder_factory = {
-            "redis": RedisGameFeeder,
-            "file": FileGameFeeder,
-        }
-        logger.info("SchedulerManager initialized.")
 
-    def _get_feeder_type(self, game_id: str) -> str:
-        """
-        Determines the appropriate feeder type for a game.
-        Placeholder logic: Default to 'redis', could be extended
-        to check config or database.
-        """
-        # Example: Could check a config file or database setting for the game_id
-        # config = load_game_config(game_id)
-        # return config.get('feeder_type', 'redis')
-        logger.debug(f"Determining feeder type for game {game_id}. Defaulting to 'file'.")
-        return "file" # Default to Redis for now
+        self.logger.info("SchedulerManager initialized.")
 
-    def _create_feeder(self, game_id: str, feeder_type_name: str) -> BaseGameFeeder:
-        """Creates a feeder instance based on the type name."""
-        feeder_class = self._feeder_factory.get(feeder_type_name)
-        if not feeder_class:
-            raise ValueError(f"Unsupported feeder type: {feeder_type_name}")
-        logger.info(f"Creating '{feeder_type_name}' feeder for game {game_id}")
-        return feeder_class(game_id=game_id)
-
-    def get_scheduler(self, game_id: str) -> Optional[BaseScheduler]:
+    def _create_feeder(self, game_id: str) -> BaseGameFeeder:
         """
-        Retrieves an active scheduler instance for a given game_id.
+        Instantiate a game feeder based on the specified type.
 
         Args:
-            game_id: The unique identifier for the game.
+            game_id: Game identifier.
 
         Returns:
-            The scheduler instance if active, otherwise None.
+            BaseGameFeeder: Instance of a concrete feeder class.
+
+        Raises:
+            ValueError: If the feeder type is unsupported.
+        """
+        return create_game_feeder(game_id, self.config, self.logger)
+
+    def get_scheduler(self, game_id: str) -> BaseScheduler | None:
+        """
+        Retrieve the active scheduler instance for a specific game.
+
+        Args:
+            game_id: Unique identifier for the game.
+
+        Returns:
+            BaseScheduler | None: Scheduler instance if found, else None.
         """
         return self._schedulers.get(game_id)
 
-    async def create_or_get_scheduler(self, game_id: str) -> Tuple[BaseScheduler, asyncio.Task]:
+    async def create_or_get_scheduler(
+        self, game_id: str
+    ) -> tuple[BaseScheduler, asyncio.Task[None]]:
         """
-        Creates a new scheduler and starts it if one doesn't exist for the game_id,
-        otherwise returns the existing active scheduler and its task.
+        Create and start a scheduler for the given game if not already running.
 
         Args:
-            game_id: The unique identifier for the game.
+            game_id: Game identifier.
 
         Returns:
-            A tuple containing the scheduler instance and its running task.
+            Tuple containing the scheduler instance and its running task.
 
         Raises:
-            ValueError: If an unsupported feeder type is determined.
-            RuntimeError: If scheduler creation fails unexpectedly.
+            ValueError: If the feeder type is unsupported.
+            RuntimeError: If scheduler creation fails.
         """
         async with self._lock:
-            # Check if already exists
             if game_id in self._scheduler_tasks:
-                logger.info(f"Scheduler for game {game_id} already exists. Returning existing instance.")
-                task = self._scheduler_tasks[game_id]
-                scheduler = self._schedulers[game_id]
+                self.logger.info(
+                    f"Scheduler already exists for game {game_id}. "
+                    "Returning existing."
+                )
+                return self._schedulers[game_id], self._scheduler_tasks[game_id]
+
+            try:
+                self.logger.info(f"Creating new scheduler for game {game_id}...")
+
+                feeder = self._create_feeder(game_id)
+
+                scheduler = GameScheduler(
+                    game_id=game_id, broker=self._broker, feeder=feeder
+                )
+                task = asyncio.create_task(
+                    scheduler.run(), name=f"scheduler_run_{game_id}"
+                )
+
+                self._schedulers[game_id] = scheduler
+                self._scheduler_tasks[game_id] = task
+
+                task.add_done_callback(self._handle_task_completion)
+
+                self.logger.info(
+                    f"Scheduler for game {game_id} created and running."
+                )
                 return scheduler, task
 
-            logger.info(f"Creating new scheduler for game {game_id}...")
-            try:
-                # 1. Determine and create the appropriate feeder
-                feeder_type_name = self._get_feeder_type(game_id)
-                feeder = self._create_feeder(game_id, feeder_type_name)
-
-                # 2. Create the scheduler instance
-                scheduler = GameScheduler(game_id=game_id, broker=self._broker, feeder=feeder)
-                self._schedulers[game_id] = scheduler
-
-                # 3. Create and run the scheduler task
-                task_name = f"scheduler_run_{game_id}"
-                scheduler_task = asyncio.create_task(scheduler.run(), name=task_name)
-                self._scheduler_tasks[game_id] = scheduler_task
-
-                # 4. Add callback for automatic cleanup when task finishes
-                scheduler_task.add_done_callback(self._handle_task_completion)
-
-                logger.info(f"Scheduler task for game {game_id} created and started.")
-                
-                return scheduler, scheduler_task
-
             except Exception as e:
-                logger.error(f"Failed to create scheduler for game {game_id}: {e}", exc_info=True)
-                # Clean up any partial state if creation failed mid-way
+                self.logger.error(
+                    f"Failed to create scheduler for {game_id}: {e}", exc_info=True
+                )
                 self._schedulers.pop(game_id, None)
                 self._scheduler_tasks.pop(game_id, None)
                 raise RuntimeError(f"Scheduler creation failed for {game_id}") from e
 
-    def _handle_task_completion(self, task: asyncio.Task) -> None:
+    def _handle_task_completion(self, task: asyncio.Task[None]) -> None:
         """
-        Callback executed when a scheduler task finishes (normally or with error).
-        Schedules the actual cleanup to run asynchronously.
-        """
-        task_name = task.get_name()
-        try:
-            if task_name.startswith("scheduler_run_"):
-                game_id = task_name.split("scheduler_run_", 1)[1]
-            else:
-                logger.error(f"Could not determine game_id from completed task name: {task_name}")
-                return
-
-            exception = task.exception()
-            if exception:
-                logger.error(f"Scheduler task for game {game_id} finished with error: {exception}", exc_info=exception)
-            else:
-                logger.info(f"Scheduler task for game {game_id} finished normally.")
-
-            asyncio.create_task(self.cleanup_scheduler(game_id), name=f"cleanup_scheduler_{game_id}")
-
-        # it is okay for task.exception() to raise an exception
-        # because we are already in the context of a task that is done
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            # Catch errors within the callback itself
-            logger.error(f"Error in _handle_task_completion for task {task_name}: {e}", exc_info=True)
-
-
-    async def cleanup_scheduler(self, game_id: str) -> bool:
-        """
-        Stops and removes a specific scheduler and its task.
-        This is safe to call even if the scheduler task has already finished.
+        Handle completion of a scheduler task, scheduling cleanup.
 
         Args:
-            game_id: The unique identifier for the game scheduler to clean up.
+            task: The completed asyncio Task.
+        """
+        try:
+            task_name = task.get_name()
+            if not task_name.startswith("scheduler_run_"):
+                self.logger.error(f"Invalid task name format: {task_name}")
+                return
 
-        Returns:
-            True if a scheduler was found and cleanup was attempted, False otherwise.
+            game_id = task_name.split("scheduler_run_", 1)[-1]
+            if task.cancelled():
+                self.logger.info(f"Scheduler task for {game_id} was cancelled.")
+            elif task.exception():
+                self.logger.error(
+                    f"Scheduler for {game_id} failed: {task.exception()}",
+                    exc_info=True,
+                )
+            else:
+                self.logger.info(f"Scheduler task for {game_id} completed normally.")
+
+            cleanup = asyncio.create_task(self.cleanup_scheduler(game_id))
+            self._background_tasks.add(cleanup)
+            cleanup.add_done_callback(self._background_tasks.discard)
+
+        except Exception as e:
+            self.logger.error(
+                f"Error in _handle_task_completion: {e}", exc_info=True
+            )
+
+    async def cleanup_scheduler(self, game_id: str) -> None:
+        """
+        Cancel and remove the scheduler and task for a specific game.
+
+        Args:
+            game_id: Game identifier to clean up.
         """
         scheduler = self._schedulers.pop(game_id, None)
         task = self._scheduler_tasks.pop(game_id, None)
 
         if scheduler is None and task is None:
-            logger.warning(f"Cleanup requested for game {game_id}, but no active scheduler or task found.")
-            return False
+            self.logger.warning(f"No active scheduler found for cleanup: {game_id}")
+            return
 
-        logger.info(f"Cleaning up scheduler for game {game_id}...")
+        self.logger.info(f"Cleaning up scheduler for game {game_id}...")
+
         if task and not task.done():
-            logger.info(f"Cancelling running scheduler task for game {game_id}...")
+            self.logger.info(f"Cancelling task for game {game_id}...")
             task.cancel()
             try:
-                # Give cancellation a chance to propagate and run finally blocks
-                # Use a small timeout to avoid waiting indefinitely if cancellation hangs
                 await asyncio.wait_for(task, timeout=2.0)
-            except asyncio.CancelledError:
-                print(f"Scheduler task for game {game_id} cancelled successfully.")
-                logger.info(f"Scheduler task for game {game_id} cancelled successfully.")
+                self.logger.info(f"Task for game {game_id} cancelled successfully.")
             except asyncio.TimeoutError:
-                logger.warning(f"Timeout waiting for scheduler task {game_id} cancellation.")
+                self.logger.warning(f"Timeout while cancelling task for {game_id}.")
             except Exception as e:
-                # Log unexpected errors during task waiting/cancellation
-                logger.error(f"Error awaiting cancelled task for {game_id}: {e}", exc_info=True)
+                self.logger.error(
+                    f"Error during task cancellation: {e}", exc_info=True
+                )
 
-        logger.info(f"Scheduler cleanup for game {game_id} complete.")
-        return True
+        self.logger.info(f"Scheduler cleanup for game {game_id} complete.")
 
     async def shutdown(self) -> None:
         """
-        Gracefully shuts down all active schedulers.
-        Should be called during application shutdown.
+        Gracefully shut down all running schedulers and tasks.
+
+        Should be called during service shutdown to clean up resources.
         """
-        logger.info("SchedulerManager shutting down all schedulers...")
+        self.logger.info("Shutting down all schedulers...")
         async with self._lock:
-            # Create a list of game_ids to avoid modifying dict while iterating
             game_ids = list(self._schedulers.keys())
+
             if not game_ids:
-                logger.info("No active schedulers to shut down.")
+                self.logger.info("No schedulers to shut down.")
                 return
 
-            logger.info(f"Found active schedulers for games: {game_ids}")
-            # Initiate cleanup for all active schedulers concurrently
+            self.logger.info(f"Cleaning up schedulers for games: {game_ids}")
+
             cleanup_tasks = [
-                asyncio.create_task(self.cleanup_scheduler(gid), name=f"shutdown_cleanup_{gid}")
-                for gid in game_ids
+                asyncio.create_task(
+                    self.cleanup_scheduler(game_id),
+                    name=f"shutdown_cleanup_{game_id}",
+                )
+                for game_id in game_ids
             ]
 
-            # Wait for all cleanup tasks to complete
             await asyncio.gather(*cleanup_tasks, return_exceptions=True)
 
-            # Verify dictionaries are empty (they should be after cleanup)
-            remaining_schedulers = list(self._schedulers.keys())
-            remaining_tasks = list(self._scheduler_tasks.keys())
-            if remaining_schedulers or remaining_tasks:
-                 logger.warning(f"Schedulers remaining after shutdown: {remaining_schedulers}")
-                 logger.warning(f"Tasks remaining after shutdown: {remaining_tasks}")
+            if self._schedulers or self._scheduler_tasks:
+                self.logger.warning(
+                    f"Remaining schedulers: {list(self._schedulers.keys())}"
+                )
+                self.logger.warning(
+                    f"Remaining tasks: {list(self._scheduler_tasks.keys())}"
+                )
             else:
-                 logger.info("All schedulers cleaned up successfully.")
+                self.logger.info("All schedulers shut down cleanly.")
 
-        logger.info("SchedulerManager shutdown complete.")
+        self.logger.info("SchedulerManager shutdown complete.")

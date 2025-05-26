@@ -1,16 +1,32 @@
+from __future__ import annotations
+
 from socketio import AsyncServer
-from backend.app.broker.message_broker import MessageBroker
-from backend.app.core.context import AppContext
-from backend.app.core.ws_auth import AuthService
-from app.websockets_api.routes import loader
-from backend.app.scheduler.manager import SchedulerManager
+
+from app.broker.message_broker import MessageBroker
+from app.core.context import AppContext
+from app.core.ws_auth import AuthService
+from app.scheduler.manager import SchedulerManager
 from app.websockets_api.namespaces.game_namespace import GameNamespace
+from app.websockets_api.routes.router import Router
 
 
 class ClientManager:
-    def __init__(self, sio: AsyncServer, broker: MessageBroker, auth: AuthService, scheduler_manager: SchedulerManager):
-        self.context = AppContext(sio=sio, broker=broker, auth=auth, scheduler_manager=scheduler_manager)
-        loader.load_routes() #move to main later
+    def __init__(
+        self,
+        sio: AsyncServer,
+        broker: MessageBroker,
+        auth: AuthService,
+        router: Router,
+        scheduler_manager: SchedulerManager,
+    ) -> None:
+        self.context = AppContext(
+            sio=sio,
+            broker=broker,
+            auth=auth,
+            scheduler_manager=scheduler_manager,
+            router=router,
+        )
+        router.load_routes()  # move to main later
 
-    def register(self):
-        self.context.sio.register_namespace(GameNamespace('/game', self.context))
+    def register(self) -> None:
+        self.context.sio.register_namespace(GameNamespace("/game", self.context))

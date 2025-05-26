@@ -1,47 +1,95 @@
-from .auth_base import AuthenticatedHandler
-from app.websockets_api.routes.registry import register_route
+from __future__ import annotations
+
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field
-from typing import Literal
-from backend.app.shared.enums.message_types import MessageType
+
+from app.handlers.auth_base import AuthenticatedHandler
+from app.shared.enums.broker_channels import BrokerChannels
+from app.shared.enums.message_types import MessageType
 
 
 class GameControlHandler(AuthenticatedHandler):
-    async def handle_authenticated(self, sid: str, data: dict):
+    """
+    Base handler for authenticated game control messages.
+
+    Publishes control commands (start, pause, resume, speed, etc.)
+    to the game's control broker channel.
+    """
+
+    async def handle_authenticated(self, sid: str, data: dict[str, Any]) -> None:
         game_id = data["game_id"]
-        await self.context.broker.publish(game_id, 'controls', data)
+        await self.context.broker.publish(game_id, BrokerChannels.CONTROLS, data)
+
+
+class StartControlHandler(GameControlHandler):
+    """
+    Handles the 'start game' control event.
+    """
+
+    async def handle_authenticated(self, sid: str, data: dict[str, Any]) -> None:
+        """
+        Publishes a 'start game' control message to the broker.
+        """
+        return await super().handle_authenticated(sid, data)
+
+
+class PauseControlHandler(GameControlHandler):
+    """
+    Handles the 'pause game' control event.
+    """
+
+    async def handle_authenticated(self, sid: str, data: dict[str, Any]) -> None:
+        """
+        Publishes a 'pause game' control message to the broker.
+        """
+        return await super().handle_authenticated(sid, data)
+
+
+class ResumeControlHandler(GameControlHandler):
+    """
+    Handles the 'resume game' control event.
+    """
+
+    async def handle_authenticated(self, sid: str, data: dict[str, Any]) -> None:
+        """
+        Publishes a 'resume game' control message to the broker.
+        """
+        return await super().handle_authenticated(sid, data)
+
+
+class SpeedControlHandler(GameControlHandler):
+    """
+    Handles the 'set game speed' control event.
+    """
+
+    async def handle_authenticated(self, sid: str, data: dict[str, Any]) -> None:
+        """
+        Publishes a 'set speed' control message to the broker.
+        """
+        return await super().handle_authenticated(sid, data)
+
 
 class GameControlSchema(BaseModel):
+    """
+    Schema for standard game control messages (start, pause, resume).
+    """
+
     game_id: str
     token: str
     type: Literal[
         MessageType.GAME_CONTROL_START,
         MessageType.GAME_CONTROL_PAUSE,
-        MessageType.GAME_CONTROL_RESUME
+        MessageType.GAME_CONTROL_RESUME,
     ]
 
-class StartControlHandler(GameControlHandler):
-    async def handle_authenticated(self, sid, data):
-        return await super().handle_authenticated(sid, data)
 
-class PauseControlHandler(GameControlHandler):
-    async def handle_authenticated(self, sid, data):
-        return await super().handle_authenticated(sid, data)
-    
-class ResumeControlHandler(GameControlHandler):
-    async def handle_authenticated(self, sid, data):
-        return await super().handle_authenticated(sid, data)
-    
-class SpeedControlHandler(GameControlHandler):
-    async def handle_authenticated(self, sid, data):
-        return await super().handle_authenticated(sid, data)
-    
 class SpeedControlSchema(BaseModel):
+    """
+    Schema for game speed control messages.
+    """
+
     game_id: str
-    token: str 
+    token: str
     speed: int = Field(..., ge=1, le=7)
     type: Literal[MessageType.GAME_CONTROL_SPEED]
-    
-register_route(message_type=MessageType.GAME_CONTROL_START, handler=StartControlHandler, schema=GameControlSchema)
-register_route(message_type=MessageType.GAME_CONTROL_PAUSE, handler=PauseControlHandler, schema=GameControlSchema)
-register_route(message_type=MessageType.GAME_CONTROL_RESUME, handler=ResumeControlHandler, schema=GameControlSchema)
-register_route(message_type=MessageType.GAME_CONTROL_SPEED, handler=SpeedControlHandler, schema=SpeedControlSchema)

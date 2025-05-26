@@ -1,21 +1,41 @@
-import asyncio
-from abc import ABC, abstractmethod
-from asyncio import Event, Task, create_task, sleep, CancelledError
-from typing import Any, Dict, Optional, Callable, Awaitable, AsyncIterator
+from __future__ import annotations
 
-from backend.app.broker.message_broker import MessageBroker
-from backend.app.shared.enums.broker_channels import BrokerChannels
-from .game_feeder import BaseGameFeeder
+import configparser
+import logging
+from abc import ABC, abstractmethod
+from asyncio import CancelledError, Event, Task, create_task, sleep
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from enum import StrEnum, auto
+from typing import Any
+
+from utils.load_config import load_config
+from utils.logger import get_logger
+
+from app.broker.message_broker import MessageBroker
+from app.shared.enums.broker_channels import BrokerChannels
+
+from .game_feeder import BaseGameFeeder
+
 
 class SchedulerState(StrEnum):
     NOT_STARTED = auto()
     PAUSED = auto()
     ONGOING = auto()
+    TERMINATED = auto()
+
+
+class SchedulerCommands(StrEnum):
+    """Enum representing valid scheduler control commands."""
+
+    START = "start"
+    PAUSE = "pause"
+    RESUME = "resume"
+    ADJUST_SPEED = "adjust_speed"
 
 
 class BaseScheduler(ABC):
     """Abstract base class for schedulers."""
+
     game_id: str
     broker: MessageBroker
 
@@ -24,7 +44,7 @@ class BaseScheduler(ABC):
         self.broker = broker
 
     @abstractmethod
-    async def get_metadata(self)-> dict:
+    async def get_metadata(self) -> dict[str, Any]:
         raise NotImplementedError
 
     async def publish(self, channel: str, message: Any) -> None:
@@ -63,135 +83,278 @@ class BaseScheduler(ABC):
 
 
 class GameScheduler(BaseScheduler):
-    """Schedules game score updates based on a feeder."""
+    """
+    Schedules game score updates by consuming scores from a
+    feeder and publishing them.
+    """
+
+    _current_sleep: Task[None] | None
     feeder: BaseGameFeeder
     pause_event: Event
     speed: float
-    _current_sleep: Optional[Task[None]]
-    controls: Dict[str, Callable[..., Awaitable[None]]] # Maps control names to async methods
+    controls: dict[str, Callable[..., Awaitable[None]]]
     state: SchedulerState
 
-    def __init__(self, game_id: str, broker: MessageBroker, feeder: BaseGameFeeder, game_speed: float = 1.0) -> None:
+    def __init__(
+        self,
+        game_id: str,
+        broker: MessageBroker,
+        feeder: BaseGameFeeder,
+        config: configparser.ConfigParser | None = None,
+        logger: logging.Logger | None = None,
+    ) -> None:
+        """
+        Initialize the GameScheduler.
+
+        Args:
+            game_id (str): Identifier for the game being scheduled.
+            broker (MessageBroker): Message broker instance to publish
+                                    and subscribe messages.
+            feeder (BaseGameFeeder): Feeder instance to get game score updates.
+            game_speed (float): Delay (in seconds) between score updates.
+            config (Optional[ConfigParser]): Configuration object for scheduler.
+            logger (Optional[Logger]): Logger for debugging and error reporting.
+        """
         super().__init__(game_id, broker)
+        self.config = config or load_config()
+        self.logger = logger or get_logger(self.__class__.__name__)
         self.feeder = feeder
         self.pause_event = Event()
-        self.speed = game_speed
+        self.speed = self.config.getfloat("app", "defaultGameSpeed", fallback=1.0)
         self._current_sleep = None
-        self.controls = {
-            'start': self.start,
-            'pause': self.pause,
-            'resume': self.resume,
-            'adjust_speed': self.adjust_speed
-        }
         self.state = SchedulerState.NOT_STARTED
+        self.pause_timeout_secs = self.config.getfloat(
+            "app", "pauseTimeoutSecs", fallback=60.0
+        )
+        self._pause_timer: Task[None] | None = None
 
-    async def get_metadata(self)-> dict:
-        game_metadata = await self.feeder.get_metadata()
-        return {
-            'game_state': self.state,
-            **game_metadata
+        self.controls = {
+            SchedulerCommands.START: self.start,
+            SchedulerCommands.PAUSE: self.pause,
+            SchedulerCommands.RESUME: self.resume,
+            SchedulerCommands.ADJUST_SPEED: self.adjust_speed,
         }
 
-    def _score_wrapper(self, score: dict):
-        return {
-                'data': score,
-                'type': 'score_update'
-            }
+    async def get_metadata(self) -> dict[str, Any]:
+        """
+        Get current scheduler metadata, including game state and game details.
+
+        Returns:
+            dict[str, Any]: Combined metadata payload.
+        """
+        game_details = await self.feeder.get_game_details()
+        return {"game_state": self.state, **game_details}
+
+    def _format_score_update_payload(self, score: dict[str, Any]) -> dict[str, Any]:
+        """
+        Format a score dictionary into the standard broker payload format.
+
+        Args:
+            score (dict): Score data.
+
+        Returns:
+            dict[str, Any]: Payload formatted for broker publishing.
+        """
+        return {"data": score, "type": "score_update"}  # fix with message type
+
+    def _start_pause_timer(self) -> None:
+        """Starts a TTL countdown for paused state, if configured."""
+        if not self.pause_timeout_secs:
+            return
+
+        async def _timer() -> None:
+            await sleep(self.pause_timeout_secs)
+            if not self.pause_event.is_set():
+                self.logger.warning(
+                    f"Game {self.game_id} paused "
+                    f"too long (>{self.pause_timeout_secs}s);"
+                    "SHUTTING DOWN SCHEDULER ..."
+                )
+                await self.shutdown_due_to_timeout()
+
+        self._pause_timer = create_task(_timer())
+
+    async def shutdown_due_to_timeout(self) -> None:
+        """
+        Handles cleanup when the scheduler is paused for too long.
+
+        Side Effects:
+            - Cancels the game loop.
+            - Sets internal state to TERMINATED or similar.
+        """
+        self.logger.error(
+            f"Shutting down scheduler for {self.game_id} due to pause timeout."
+        )
+        self.state = SchedulerState.TERMINATED  # Define this in your enum
+        self.pause_event.set()  # Unblock the pause wait
+        if self._current_sleep and not self._current_sleep.done():
+            self._current_sleep.cancel()
+
+    def _cancel_pause_timer(self) -> None:
+        """Cancels the pause TTL countdown, if running."""
+        if self._pause_timer and not self._pause_timer.done():
+            self._pause_timer.cancel()
+            self._pause_timer = None
 
     async def run(self) -> None:
-        """Optimized game loop with batched feeding and control handling."""
-        
-        # Start listening for control messages in the background
+        """
+        Main game loop that fetches scores from the feeder and publishes them.
+
+        Handles control messages asynchronously and respects pause/resume/speed
+         state.
+        """
         control_task = create_task(self.subscribe_to_controls())
 
         try:
-            score_iterator: AsyncIterator[Any] = self.feeder.get_next_score()
+            score_iterator: AsyncGenerator[Any, None] = self.feeder.get_next_score()
+
             async for score in score_iterator:
-                # Wait if paused. The event is set by resume() or start()
                 await self.pause_event.wait()
 
-                await self.publish(BrokerChannels.SCORES_UPDATE, self._score_wrapper(score))
+                await self.publish(
+                    BrokerChannels.SCORES_UPDATE,
+                    self._format_score_update_payload(score),
+                )
 
-                # Adjustable sleep with immediate cancellation possibility
                 try:
                     self._current_sleep = create_task(sleep(self.speed))
                     await self._current_sleep
                 except CancelledError:
-                    pass
+                    self.logger.debug(
+                        "Sleep interrupted during pause or speed change."
+                    )
                 finally:
                     self._current_sleep = None
 
-        except Exception as e:
-            print(f"Error in GameScheduler run loop for {self.game_id}: {e}")
+        except Exception:
+            self.logger.exception(f"Run loop error for game_id={self.game_id}")
+            raise
         finally:
-            control_task.cancel() # Stop listening for controls
+            control_task.cancel()
             try:
                 await control_task
             except CancelledError:
-                pass
-            await self.feeder.cleanup() # type: ignore
-            print(f"GameScheduler for {self.game_id} finished.")
+                self.logger.debug("Control task cancelled cleanly.")
 
+            await self.feeder.cleanup()
+            self.logger.info(f"Scheduler finished for game_id={self.game_id}.")
 
     async def start(self) -> None:
-        """Start or resume game updates by setting the event."""
-        print(f"Starting scheduler for {self.game_id}")
+        """
+        Start or resume the game scheduler.
+
+        Side Effects:
+            - Sets the pause event.
+            - Updates internal scheduler state.
+        """
+        self.logger.info(f"Starting scheduler for game_id={self.game_id}")
         self.pause_event.set()
         self.state = SchedulerState.ONGOING
 
     async def pause(self) -> None:
-        """Pause game updates efficiently by clearing the event and cancelling sleep."""
-        print(f"Pausing scheduler for {self.game_id}")
+        """
+        Pause the game scheduler.
+
+        Side Effects:
+            - Clears the pause event.
+            - Cancels current sleep task.
+            - Updates internal scheduler state.
+        """
+        self.logger.info(f"Pausing scheduler for game_id={self.game_id}")
         self.pause_event.clear()
         self.state = SchedulerState.PAUSED
+        self._start_pause_timer()
+
         if self._current_sleep and not self._current_sleep.done():
             self._current_sleep.cancel()
 
     async def resume(self) -> None:
-        """Resume game updates by setting the event."""
-        print(f"Resuming scheduler for {self.game_id}")
+        """
+        Resume game updates after a pause.
+
+        Side Effects:
+            - Sets the pause event.
+            - Updates internal scheduler state.
+        """
+        self.logger.info(f"Resuming scheduler for game_id={self.game_id}")
         self.pause_event.set()
+        self._cancel_pause_timer()
         self.state = SchedulerState.ONGOING
 
     async def adjust_speed(self, new_speed: float) -> None:
-        """Change game speed with immediate effect."""
-        print(f"Adjusting speed for {self.game_id} to {new_speed}")
-        if new_speed <= 0:
-            print(f"Warning: Invalid speed {new_speed} requested. Speed must be positive.")
-            return # Or raise an error
+        """
+        Dynamically adjust the update speed of the game scheduler.
 
+        Args:
+            new_speed (float): New delay in seconds between score updates.
+
+        Side Effects:
+            - Updates internal sleep duration.
+            - Cancels current sleep task if one is running.
+        """
+        if new_speed <= 0:
+            self.logger.warning(
+                f"Ignored invalid speed={new_speed} for game_id={self.game_id}"
+            )
+            return
+
+        self.logger.info(
+            f"Adjusting speed for game_id={self.game_id} to speed={new_speed}"
+        )
         self.speed = new_speed
-        # If currently sleeping, cancel the existing sleep task
+
         if self._current_sleep and not self._current_sleep.done():
             self._current_sleep.cancel()
 
     async def subscribe_to_controls(self) -> None:
-        """Handle control messages efficiently."""
-        print(f"Scheduler {self.game_id} subscribing to control messages.")
+        """
+        Subscribe to control commands for this game and route them to their handlers.
+
+        Listens asynchronously for messages on the controls channel.
+        """
+        self.logger.debug(
+            f"Scheduler for game_id={self.game_id} subscribing to controls."
+        )
+
         try:
-            # Assuming broker.subscribe yields messages for the specific game_id and "controls" channel
-            control_iterator: AsyncIterator[Dict[str, Any]] = self.broker.subscribe(self.game_id, BrokerChannels.CONTROLS) # Specify channel
+            control_iterator: AsyncGenerator[
+                dict[str, Any], None
+            ] = await self.broker.subscribe(self.game_id, BrokerChannels.CONTROLS)
+
             async for message in control_iterator:
-                command_type = message.get('type')
+                command_type = message.get("type", "")
                 handler = self.controls.get(command_type)
 
                 if handler:
-                    print(f"Scheduler {self.game_id} received control: {message}")
-                    if command_type == 'adjust_speed':
-                        speed_value = message.get('speed')
-                        if isinstance(speed_value, (int, float)):
+                    self.logger.info(
+                        f"Received control={command_type} for game_id={self.game_id}"
+                    )
+                    if command_type == SchedulerCommands.ADJUST_SPEED:
+                        speed_value = message.get("speed")
+                        if isinstance(speed_value, (int | float)):
                             await handler(float(speed_value))
                         else:
-                            print(f"Invalid speed value received: {speed_value}")
+                            self.logger.warning(
+                                f"Ignored invalid speed value: {speed_value}"
+                            )
                     else:
-                        # For start, pause, resume which don't need extra args
                         await handler()
                 else:
-                    print(f"Scheduler {self.game_id} received unknown control type: {command_type}")
-        except asyncio.CancelledError:
-            print(f"Control subscription for {self.game_id} cancelled.")
+                    self.logger.warning(
+                        f"Unknown control type={command_type} "
+                        f"for game_id={self.game_id}"
+                    )
+
+        except CancelledError:
+            self.logger.debug(
+                f"Control subscription cancelled for game_id={self.game_id}"
+            )
             raise
-        except Exception as e:
-            print(f"Error in control subscription for {self.game_id}: {e}")
+        except Exception:
+            self.logger.exception(
+                f"Control subscription error for game_id={self.game_id}"
+            )
         finally:
-            print(f"Scheduler {self.game_id} unsubscribed from controls.")
+            self.logger.info(
+                f"Scheduler unsubscribed from controls for game_id={self.game_id}."
+            )

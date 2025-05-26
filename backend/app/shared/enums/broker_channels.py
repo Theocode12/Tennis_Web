@@ -1,5 +1,6 @@
-from enum import StrEnum
-from enum import auto
+from __future__ import annotations
+
+from enum import StrEnum, auto
 
 
 class BrokerChannels(StrEnum):

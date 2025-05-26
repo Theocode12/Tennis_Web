@@ -1,34 +1,95 @@
-import redis.asyncio as aioredis
-import asyncio
-from backend.app.shared.lib.singleton_metaclass import SingletonMeta
+from __future__ import annotations
+
+import configparser
+from logging import Logger
+
+import redis.asyncio as redis
+from utils.logger import get_logger  # Adjust import path to fit your structure
+
+from app.shared.lib.singleton_metaclass import SingletonMeta
+from db.exceptions.redis_connection_error import RedisConnectionError
 
 
 class BackendRedisStorage(metaclass=SingletonMeta):
-    """Dedicated Redis connection pool for backend operations"""
-    
-    def __init__(self, url: str = "redis://localhost"):
-        self._pool = None
-        self.url = url
-        self._lock = asyncio.Lock()
+    """
+    Manages a singleton Redis connection pool for backend operations.
 
-    async def connect(self):
-        """Initialize connection pool"""
-        self._pool = await aioredis.from_url(
-            self.url,
-            decode_responses=True,
-            socket_keepalive=True,
-            health_check_interval=30,
-            retry_on_timeout=True,
-        )
+    Ensures a shared connection pool for all Redis interactions, with built-in
+    connection validation and optional logger support.
+    """
 
-    def get_pool(self):
-        """Get the connection pool"""
-        if not self._pool:
-            raise RuntimeError("Connection pool is not initialized.")
-        return self._pool
+    def __init__(
+        self, config: configparser.ConfigParser, logger: Logger | None = None
+    ) -> None:
+        """
+        Initialize the Redis storage manager.
 
-    async def close(self):
-        """Cleanup connections"""
-        if self._pool:
-            await self._pool.close()
+        Args:
+            config (ConfigParser): Application configuration containing
+                                    storage settings.
+            logger (Optional[Logger]): Optional logger instance. If not provided,
+                a default logger is retrieved using `get_logger()`.
+        """
+        self.url = config.get("app", "redisUrl", fallback="redis://localhost")
+        self.pool: redis.ConnectionPool | None = None
+        self.logger = logger or get_logger(self.__class__.__name__)
 
+    async def connect(self) -> None:
+        """
+        Initialize the Redis connection pool and validate connectivity.
+
+        This method is idempotent; it only creates the pool if one doesn't
+        already exist.
+
+        Raises:
+            RedisConnectionError: If Redis server is unreachable or ping fails.
+        """
+        if self.pool is None:
+            self.logger.debug("Initializing Redis connection pool.")
+            self.pool = redis.ConnectionPool.from_url(
+                self.url,
+                decode_responses=True,
+                socket_keepalive=True,
+                health_check_interval=30,
+                retry_on_timeout=True,
+            )
+
+        try:
+            async with redis.Redis(connection_pool=self.pool) as client:
+                if await client.ping():
+                    self.logger.info("Redis connection established successfully.")
+                else:
+                    self.logger.error("Redis ping failed.")
+                    raise RedisConnectionError("Redis ping failed.")
+        except Exception as e:
+            self.logger.exception(f"Redis connection failed: {e}")
+            raise RedisConnectionError(f"Redis connection failed: {e}") from e
+
+    def get_client(self) -> redis.Redis:
+        """
+        Retrieve a Redis client using the shared connection pool.
+
+        Returns:
+            redis.Redis: Redis client instance.
+
+        Raises:
+            RuntimeError: If the connection pool has not been initialized.
+        """
+        if self.pool is None:
+            error_msg = (
+                "Redis connection pool is not initialized. Call connect() first."
+            )
+            self.logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        self.logger.debug("Returning Redis client instance from pool.")
+        return redis.Redis(connection_pool=self.pool)
+
+    async def close(self) -> None:
+        """
+        Clean up and close the Redis connection pool.
+        """
+        if self.pool:
+            self.logger.info("Closing Redis connection pool.")
+            await self.pool.aclose()
+            self.logger.debug("Redis pool closed.")

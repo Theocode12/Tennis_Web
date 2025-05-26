@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 from enum import StrEnum
 
-# This file defines the ClientEvent enumeration, which contains all possible events that can be sent to the client.
+# This file defines the ClientEvent enumeration, which contains all possible
+# events that can be sent to the client.
 # It also means that is are all the events a client can listen to.
+
 
 class ClientEvent(StrEnum):
     """Enumeration of all possible events that can be sent to the client."""
