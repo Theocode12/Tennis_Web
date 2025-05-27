@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 from socketio import AsyncNamespace
 
-from app.core.context import AppContext
 from app.shared.enums.client_events import ClientEvent
+
+if TYPE_CHECKING:
+    from app.core.context import AppContext
 
 
 class GameNamespace(AsyncNamespace):  # type: ignore[misc]
@@ -42,6 +44,7 @@ class GameNamespace(AsyncNamespace):  # type: ignore[misc]
         """
         self.logger.info(
             f"Client connected to namespace {self.namespace}: SID={sid}"
+            f" with environ={environ}"
         )
         # TODO: Implement authentication/validation logic using environ or an
         #        initial auth message if needed
@@ -68,6 +71,21 @@ class GameNamespace(AsyncNamespace):  # type: ignore[misc]
                 )
                 await self.leave_room(sid, room)
 
+                # Get the list of participants and check if the room is now empty
+                participants = list(
+                    self.context.client_manager.get_participants(
+                        self.namespace, room
+                    )
+                )
+
+                if not participants:
+                    self.logger.info(
+                        f"Room {room} in namespace {self.namespace} is empty, "
+                        "performing cleanup."
+                    )
+
+                    await self.close_room(room)
+
         except Exception as e:
             self.logger.error(
                 f"Error during disconnect cleanup for SID {sid}: {e}", exc_info=True
@@ -85,9 +103,10 @@ class GameNamespace(AsyncNamespace):  # type: ignore[misc]
 
         if not isinstance(data, dict):
             error_msg = {"error": "Invalid message format, expected an object"}
-            await self.emit(ClientEvent.ERROR.value, error_msg, to=sid)
+            await self.emit(ClientEvent.ERROR, error_msg, to=sid)
             return
 
+        data["namespace"] = self.namespace
         await self._handle_incoming_message(sid, data)
 
     async def _handle_incoming_message(self, sid: str, data: dict[str, Any]) -> None:
@@ -102,7 +121,7 @@ class GameNamespace(AsyncNamespace):  # type: ignore[misc]
 
         if not message_type:
             error_msg = {"error": "Message type missing"}
-            await self.emit(ClientEvent.ERROR.value, error_msg, to=sid)
+            await self.emit(ClientEvent.ERROR, error_msg, to=sid)
             return
 
         router = self.context.router
@@ -110,7 +129,7 @@ class GameNamespace(AsyncNamespace):  # type: ignore[misc]
 
         if route_definition is None:
             error_msg = {"error": "Unknown message type"}
-            await self.emit(ClientEvent.ERROR.value, error_msg, to=sid)
+            await self.emit(ClientEvent.ERROR, error_msg, to=sid)
             return
 
         try:

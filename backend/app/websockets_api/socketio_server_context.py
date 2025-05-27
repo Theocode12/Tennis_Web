@@ -3,14 +3,13 @@ from __future__ import annotations
 from socketio import AsyncServer
 
 from app.broker.message_broker import MessageBroker
-from app.core.context import AppContext
 from app.core.ws_auth import AuthService
 from app.scheduler.manager import SchedulerManager
 from app.websockets_api.namespaces.game_namespace import GameNamespace
 from app.websockets_api.routes.router import Router
 
 
-class ClientManager:
+class SocketIOServerContext:
     def __init__(
         self,
         sio: AsyncServer,
@@ -19,6 +18,8 @@ class ClientManager:
         router: Router,
         scheduler_manager: SchedulerManager,
     ) -> None:
+        from app.core.context import AppContext
+
         self.context = AppContext(
             sio=sio,
             broker=broker,

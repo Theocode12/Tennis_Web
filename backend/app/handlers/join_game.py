@@ -12,6 +12,36 @@ from app.shared.enums.client_events import ClientEvent
 from app.shared.enums.message_types import MessageType
 
 
+def create_subscription_key(game_id: str, channels: list[BrokerChannels]) -> str:
+    """
+    Creates a unique subscription key based on the game ID and channels.
+    This key is used to manage broker listener tasks.
+
+    Args:
+        game_id (str): Unique identifier for the game session.
+        channels (list[BrokerChannels]): List of channels to subscribe to.
+
+    Returns:
+        str: A unique subscription key in the format
+                "game_id:channel1:channel2:...".
+    """
+    return f"{game_id}:{':'.join(sorted([ch.value for ch in channels]))}"
+
+
+def get_game_id_from_subscription_key(subscription_key: str) -> str:
+    """
+    Extracts the game ID from a subscription key.
+
+    Args:
+        subscription_key (str): The subscription key in the format
+                                "game_id:channel1:channel2:...".
+
+    Returns:
+        str: The game ID extracted from the subscription key.
+    """
+    return subscription_key.split(":")[0]
+
+
 async def listen_to_broker_channels(
     context: AppContext, game_id: str, channels: list[BrokerChannels]
 ) -> None:
@@ -117,7 +147,10 @@ async def listen_to_broker_channels(
 
 
 def _cleanup_listener_task(
-    task: asyncio.Task[Any], context: AppContext, subscription_key: str
+    task: asyncio.Task[Any],
+    context: AppContext,
+    subscription_key: str,
+    namespace: str,
 ) -> None:
     """
     Cleans up a finished broker listener task.
@@ -138,6 +171,9 @@ def _cleanup_listener_task(
 
     # Safely remove the finished task from the active registry
     context.broker_listener_tasks.pop(subscription_key, None)
+
+    game_id = get_game_id_from_subscription_key(subscription_key)
+    context.client_manager.close_room(game_id, namespace)
 
     # Log exception if it's not a clean cancellation
     exception = task.exception()
@@ -169,6 +205,7 @@ class JoinGameHandler(BaseHandler):
         """
         context = self.context
         logger = context.logger
+        namespace = data.get("namespace", "/game")
         game_id = data.get("game_id")
 
         if not game_id:
@@ -179,6 +216,7 @@ class JoinGameHandler(BaseHandler):
                 ClientEvent.ERROR,
                 {"error": "Missing required 'game_id' field."},
                 to=sid,
+                namespace=namespace,
             )
             return
 
@@ -188,20 +226,18 @@ class JoinGameHandler(BaseHandler):
                 f"JoinGameHandler: Game '{game_id}' not found or inactive."
             )
             await context.sio.emit(
-                ClientEvent.ERROR,
+                ClientEvent.ERROR.value,
                 {
                     "error": f"Game '{game_id}' is not currently active or "
                     "does not exist."
                 },
                 to=sid,
+                namespace=namespace,
             )
             return
 
         channels_to_listen = [BrokerChannels.SCORES_UPDATE, BrokerChannels.CONTROLS]
-        subscription_key = (
-            f"{game_id}:{':'.join(sorted([ch.value for ch in channels_to_listen]))}"
-        )
-
+        subscription_key = create_subscription_key(game_id, channels_to_listen)
         if subscription_key not in context.broker_listener_tasks:
             logger.info(
                 f"JoinGameHandler: No broker listener for game_id={game_id}"
@@ -212,8 +248,11 @@ class JoinGameHandler(BaseHandler):
                 name=f"broker_listener_{subscription_key}",
             )
             context.broker_listener_tasks[subscription_key] = listener_task
+            namespace = data.get("namespace", "/game")
             listener_task.add_done_callback(
-                lambda t: _cleanup_listener_task(t, context, subscription_key)
+                lambda t: _cleanup_listener_task(
+                    t, context, subscription_key, namespace
+                )
             )
             logger.info(
                 f"JoinGameHandler: Broker listener task for {subscription_key}"
@@ -226,7 +265,7 @@ class JoinGameHandler(BaseHandler):
             )
 
         try:
-            await context.sio.enter_room(sid, game_id)
+            await context.sio.enter_room(sid, game_id, namespace=namespace)
             logger.info(
                 f"JoinGameHandler: Client {sid} entered Socket.IO room {game_id}"
             )
@@ -236,6 +275,7 @@ class JoinGameHandler(BaseHandler):
                 ClientEvent.GAME_JOIN,
                 {**response_data, "message": f"Successfully joined game {game_id}"},
                 to=sid,
+                namespace=namespace,
             )
         except Exception as e:
             logger.error(
@@ -247,6 +287,7 @@ class JoinGameHandler(BaseHandler):
                 ClientEvent.ERROR,
                 {"error": f"Failed to enter game room '{game_id}'."},
                 to=sid,
+                namespace=namespace,
             )
 
 

@@ -26,4 +26,4 @@ class ClientEvent(StrEnum):
     GAME_SCORE_UPDATE = "game.score.update"
 
     # Error
-    ERROR = "error"
+    ERROR = "game.error"
