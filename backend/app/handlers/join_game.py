@@ -43,7 +43,7 @@ def get_game_id_from_subscription_key(subscription_key: str) -> str:
 
 
 async def listen_to_broker_channels(
-    context: AppContext, game_id: str, channels: list[BrokerChannels]
+    context: AppContext, game_id: str, channels: list[BrokerChannels], namespace: str
 ) -> None:
     """
     Subscribes to broker channels for a given game ID, listens for
@@ -125,7 +125,10 @@ async def listen_to_broker_channels(
                 }
 
                 await context.sio.emit(
-                    client_event.value, final_client_payload, room=game_id
+                    client_event.value,
+                    final_client_payload,
+                    room=game_id,
+                    namespace=namespace,
                 )
                 logger.debug(
                     f"Emitted event '{client_event.value}' to room "
@@ -244,7 +247,9 @@ class JoinGameHandler(BaseHandler):
                 f"and channels={channels_to_listen}. Creating listener task."
             )
             listener_task = asyncio.create_task(
-                listen_to_broker_channels(context, game_id, channels_to_listen),
+                listen_to_broker_channels(
+                    context, game_id, channels_to_listen, namespace
+                ),
                 name=f"broker_listener_{subscription_key}",
             )
             context.broker_listener_tasks[subscription_key] = listener_task

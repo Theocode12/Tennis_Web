@@ -13,6 +13,7 @@ from utils.logger import get_logger
 
 from app.broker.message_broker import MessageBroker
 from app.shared.enums.broker_channels import BrokerChannels
+from app.shared.enums.control_types import Controls
 
 from .game_feeder import BaseGameFeeder
 
@@ -27,10 +28,10 @@ class SchedulerState(StrEnum):
 class SchedulerCommands(StrEnum):
     """Enum representing valid scheduler control commands."""
 
-    START = "start"
-    PAUSE = "pause"
-    RESUME = "resume"
-    ADJUST_SPEED = "adjust_speed"
+    START = Controls.GAME_CONTROL_START
+    PAUSE = Controls.GAME_CONTROL_PAUSE
+    RESUME = Controls.GAME_CONTROL_RESUME
+    ADJUST_SPEED = Controls.GAME_CONTROL_SPEED
 
 
 class BaseScheduler(ABC):
@@ -322,6 +323,7 @@ class GameScheduler(BaseScheduler):
             ] = await self.broker.subscribe(self.game_id, BrokerChannels.CONTROLS)
 
             async for message in control_iterator:
+                self.logger.debug(f"Received control message: {message}")
                 command_type = message.get("type", "")
                 handler = self.controls.get(command_type)
 

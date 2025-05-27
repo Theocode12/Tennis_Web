@@ -42,10 +42,10 @@ class GameNamespace(AsyncNamespace):  # type: ignore[misc]
             sid: The session ID of the client.
             environ: The environment dictionary provided by the connection.
         """
-        self.logger.info(
-            f"Client connected to namespace {self.namespace}: SID={sid}"
-            f" with environ={environ}"
-        )
+        # self.logger.info(
+        #     f"Client connected to namespace {self.namespace}: SID={sid}"
+        #     f" with environ={environ}"
+        # )
         # TODO: Implement authentication/validation logic using environ or an
         #        initial auth message if needed
 
@@ -91,7 +91,9 @@ class GameNamespace(AsyncNamespace):  # type: ignore[misc]
                 f"Error during disconnect cleanup for SID {sid}: {e}", exc_info=True
             )
 
-    async def on_message(self, sid: str, data: Any) -> None:
+    async def on_message(
+        self, sid: str, data: Any
+    ) -> None:  # should take in a variadic
         """
         Handles incoming 'message' events sent by the client.
 
@@ -134,9 +136,11 @@ class GameNamespace(AsyncNamespace):  # type: ignore[misc]
 
         try:
             schema_cls = route_definition.get("schema")
+            print(data)
             validated_data = (
                 data if schema_cls is None else schema_cls(**data).model_dump()
             )
+            print(validated_data)
         except ValidationError:
             error_msg = {"error": "Invalid data schema"}
             await self.emit(ClientEvent.ERROR.value, error_msg, to=sid)
@@ -153,4 +157,4 @@ class GameNamespace(AsyncNamespace):  # type: ignore[misc]
             error_msg = {
                 "error": "An internal error occurred while processing the message"
             }
-            await self.emit(ClientEvent.ERROR.value, error_msg, to=sid)
+            await self.emit(ClientEvent.ERROR, error_msg, to=sid)

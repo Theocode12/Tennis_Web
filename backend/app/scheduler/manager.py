@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import configparser
 import logging
+from typing import Any
 
 from utils.load_config import load_config
 from utils.logger import get_logger
@@ -82,6 +83,25 @@ class SchedulerManager(metaclass=SingletonMeta):
             BaseScheduler | None: Scheduler instance if found, else None.
         """
         return self._schedulers.get(game_id)
+
+    def has_scheduler(self, game_id: str) -> bool:
+        """
+        Check if a scheduler exists for the given game ID.
+
+        Args:
+            game_id: Unique identifier for the game.
+
+        Returns:
+            bool: True if a scheduler exists, False otherwise.
+        """
+        return game_id in self._schedulers
+
+    async def get_game_data(self, game_id: str) -> dict[str, Any] | None:
+        scheduler = self.get_scheduler(game_id)
+
+        if scheduler:
+            return await scheduler.get_metadata()
+        return None
 
     async def create_or_get_scheduler(
         self, game_id: str

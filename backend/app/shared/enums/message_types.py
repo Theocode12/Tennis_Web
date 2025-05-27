@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+from .control_types import Controls
+
 
 class MessageType(StrEnum):
     """Enumeration of all possible websocket message types."""
@@ -10,7 +12,7 @@ class MessageType(StrEnum):
     GAME_JOIN = "game.join"
 
     # Game Controls
-    GAME_CONTROL_START = "game.control.start"
-    GAME_CONTROL_PAUSE = "game.control.pause"
-    GAME_CONTROL_RESUME = "game.control.resume"
-    GAME_CONTROL_SPEED = "game.control.speed"
+    GAME_CONTROL_START = Controls.GAME_CONTROL_START
+    GAME_CONTROL_PAUSE = Controls.GAME_CONTROL_PAUSE
+    GAME_CONTROL_RESUME = Controls.GAME_CONTROL_RESUME
+    GAME_CONTROL_SPEED = Controls.GAME_CONTROL_SPEED

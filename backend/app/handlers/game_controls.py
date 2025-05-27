@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.handlers.auth_base import AuthenticatedHandler
 from app.shared.enums.broker_channels import BrokerChannels
+from app.shared.enums.client_events import ClientEvent
 from app.shared.enums.message_types import MessageType
 
 
@@ -18,7 +19,16 @@ class GameControlHandler(AuthenticatedHandler):
     """
 
     async def handle_authenticated(self, sid: str, data: dict[str, Any]) -> None:
+        namespace = data.get("namespace", "")
         game_id = data["game_id"]
+        if not self.context.scheduler_manager.has_scheduler(game_id):
+            await self.context.sio.emit(
+                ClientEvent.ERROR,
+                {"error": "Game not found or not running"},
+                room=sid,
+                namespace=namespace,
+            )
+
         await self.context.broker.publish(game_id, BrokerChannels.CONTROLS, data)
 
 

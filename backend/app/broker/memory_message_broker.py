@@ -60,7 +60,6 @@ class InMemoryMessageBroker(MessageBroker):
 
         tasks = [q.put(message) for q in list(subscribers)]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-
         success_count = 0
         for i, r in enumerate(results):
             if isinstance(r, Exception):
