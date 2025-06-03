@@ -6,16 +6,17 @@ import { Link as RouterLink } from 'react-router-dom';
 interface NavItemProps {
   label: string;
   path: string;
+  sx: object
 }
 
-export default function NavItem({ label, path }: NavItemProps) {
+export default function NavItem({ label, path, sx }: NavItemProps) {
   return (
     <Button
       component={RouterLink}
       to={path}
       variant="text"
       color="inherit"
-      sx={{ textTransform: 'none' }}
+      sx={{ textTransform: 'none', ...sx }}
     >
       {label}
     </Button>
