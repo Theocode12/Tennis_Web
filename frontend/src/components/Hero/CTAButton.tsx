@@ -24,36 +24,54 @@ export default function CTAButton({
   href,
   sx = {},
 }: CTAButtonProps) {
-  const commonProps = {
-    variant,
-    size,
-    color,
-    onClick,
-    sx: {
-      textTransform: 'none',
-      fontWeight: 600,
-      px: 3,
-      py: 1.5,
-      fontSize: { xs: '0.9rem', sm: '1rem' },
-      ...sx,
-    },
-  };
+
+  const baseStyles: SxProps<Theme> = {
+    textTransform: 'none',
+    fontWeight: 600,
+    px: 3,
+    py: 1.5,
+    fontSize: { xs: '0.9rem', sm: '1rem' },
+    ...sx
+  }
 
   if (to) {
     return (
-      <Button component={RouterLink} to={to} {...commonProps}>
+      <Button 
+        component={RouterLink} 
+        to={to} 
+        variant={variant} 
+        size={size} 
+        color={color} 
+        onClick={onClick} 
+        sx={{...baseStyles}}>
         {label}
       </Button>
     );
   }
 
-//   if (href) {
-//     return (
-//       <Button href={href} target="_blank" rel="noopener" {...commonProps}>
-//         {label}
-//       </Button>
-//     );
-//   }
+  if (href) {
+    return (
+      <Button 
+        component="a" 
+        href={href} 
+        target="_blank" 
+        rel="noopener"
+        variant={variant}
+        size={size}
+        color={color}
+        onClick={onClick}
+        sx={{...baseStyles}}>
+        {label}
+      </Button>
+    );
+  }
 
-//   return <Button {...commonProps}>{label}</Button>;
+  return <Button 
+            variant={variant}
+            size={size}
+            color={color}
+            onClick={onClick}
+            sx={{...baseStyles}}>
+            {label}
+          </Button>;
 }
