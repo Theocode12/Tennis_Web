@@ -9,8 +9,10 @@ from pathlib import Path
 from typing import Any, cast
 
 import redis.asyncio as redis
-from db.file_storage import BackendFileStorage
-from db.redis_storage import BackendRedisStorage
+
+from db.exceptions.redis_connection_error import RedisConnectionError
+from db.file_storage import FileStorage
+from db.redis_storage import RedisStorage
 from utils.logger import get_logger
 
 
@@ -122,7 +124,7 @@ class RedisGameFeeder(BaseGameFeeder):
     def __init__(
         self,
         game_id: str,
-        storage: BackendRedisStorage,
+        storage: RedisStorage,
         batch_size: int = 30,
         logger: Logger | None = None,
     ) -> None:
@@ -153,6 +155,9 @@ class RedisGameFeeder(BaseGameFeeder):
             KeyError: If expected fields are missing.
             json.JSONDecodeError: If the Redis value is malformed.
         """
+
+        await self._ensure_connected()
+
         if self._game_details is None:
             try:
                 async with self.storage.get_client() as client:
@@ -168,8 +173,8 @@ class RedisGameFeeder(BaseGameFeeder):
                     data = json.loads(raw_data)
 
                 self._game_details = {
-                    "game_id": data["game_id"],
-                    "teams": data["teams"],
+                    "game_id": data.get("game_id"),
+                    "teams": data.get("teams"),
                 }
                 self.logger.debug(f"Game details loaded for game_id={self.game_id}")
 
@@ -186,8 +191,14 @@ class RedisGameFeeder(BaseGameFeeder):
         Ensure Redis connection pool is initialized.
         """
         if not self.storage.pool:
-            self.logger.debug("Establishing Redis connection...")
-            await self.storage.connect()
+            try:
+                self.logger.debug("Establishing Redis connection...")
+                await self.storage.connect()
+            except RedisConnectionError as e:
+                err_msg = "Redis GameFeeder failed to connect to Redis Server. \
+                           Please ensure server is active"
+                self.logger.error(err_msg)
+                raise RuntimeError(err_msg) from e
 
     async def _get_length(self, client: redis.Redis, key: str) -> int:
         """
@@ -270,7 +281,7 @@ class FileGameFeeder(BaseGameFeeder):
     def __init__(
         self,
         game_id: str,
-        storage: BackendFileStorage,
+        storage: FileStorage,
         logger: Logger | None = None,
     ) -> None:
         """

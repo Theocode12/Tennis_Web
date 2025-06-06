@@ -1,22 +1,20 @@
 from __future__ import annotations
 
 import configparser
-from logging import Logger
+import logging
 from pathlib import Path
 
 from utils.logger import get_logger
 
 
-class BackendFileStorage:
+class FileStorage:
     """
     Provides file-based storage for game data within a specified directory.
     Ensures that game files are accessed and created consistently.
     """
 
     def __init__(
-        self,
-        config: configparser.ConfigParser,
-        logger: Logger | None = None,
+        self, config: configparser.ConfigParser, logger: logging.Logger
     ) -> None:
         """
         Initialize the BackendFileStorage instance.

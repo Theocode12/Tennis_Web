@@ -6,13 +6,13 @@ import logging
 from collections.abc import AsyncGenerator
 from typing import Any, cast
 
-from db.redis_storage import BackendRedisStorage
 from redis.asyncio import Redis
 from redis.asyncio.client import PubSub
 from redis.exceptions import ConnectionError as RedisConnectionError
 
 from app.broker.message_broker import MessageBroker
 from app.shared.enums.broker_channels import BrokerChannels
+from db.redis_storage import RedisStorage
 
 
 class RedisMessageBroker(MessageBroker):
@@ -26,12 +26,10 @@ class RedisMessageBroker(MessageBroker):
         self,
         config: configparser.ConfigParser | None = None,
         logger: logging.Logger | None = None,
-        redis_store: BackendRedisStorage | None = None,
+        redis_store: RedisStorage | None = None,
     ) -> None:
         super().__init__(config, logger)
-        self.redis_store = redis_store or BackendRedisStorage(
-            self.config, self.logger
-        )
+        self.redis_store = redis_store or RedisStorage(self.config, self.logger)
         self.redis: Redis | None = None
         self._active_pubsubs: set[tuple[PubSub, list[BrokerChannels]]] = set()
         self.logger.info("RedisMessageBroker initialized.")

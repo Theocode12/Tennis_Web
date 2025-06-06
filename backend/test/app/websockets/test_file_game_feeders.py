@@ -1,16 +1,17 @@
-import unittest
-import tempfile
+from __future__ import annotations
+
 import json
-from pathlib import Path
+import logging
 from collections import deque
+from configparser import ConfigParser
+from pathlib import Path
 
-# Adjust imports based on your project structure
-from backend.app.scheduler.game_feeder import FileGameFeeder, BaseGameFeeder
-from db.file_storage import BackendFileStorage # Assuming this path is correct
+import pytest
 
-# --- Define the test data using the ACTUAL structure ---
+from app.scheduler.game_feeder import BaseGameFeeder, FileGameFeeder
+from db.file_storage import FileStorage  # adjust import if needed
+
 TEST_GAME_ID = "test_123"
-# Use the actual score structure from the provided JSON
 TEST_SCORES_LIST = [
     {"set": [[0], [0]], "game_points": [1, 0]},
     {"set": [[0], [0]], "game_points": [1, 1]},
@@ -23,113 +24,122 @@ TEST_SCORES_LIST = [
     {"set": [[0], [1]], "game_points": [0, 1]},
 ]
 
-# The full structure expected in the JSON file
 TEST_GAME_DATA = {
     "game_id": TEST_GAME_ID,
-    "teams": { # Include teams for completeness, though feeder only uses scores
+    "teams": {
         "team_1": {"name": "Team A", "players": [{"name": "Alice"}]},
-        "team_2": {"name": "Team B", "players": [{"name": "Bob"}]}
+        "team_2": {"name": "Team B", "players": [{"name": "Bob"}]},
     },
-    "scores": TEST_SCORES_LIST
+    "scores": TEST_SCORES_LIST,
 }
-# --- End of test data definition ---
 
 
-class TestFileGameFeeder(unittest.IsolatedAsyncioTestCase):
-    """Test suite for the FileGameFeeder class."""
+@pytest.fixture
+def file_game_feeder(
+    tmp_path: Path,
+    dummy_logger: logging.Logger,
+    valid_config: ConfigParser,
+) -> FileGameFeeder:
+    """Fixture to create a FileGameFeeder with test data."""
+    game_dir = tmp_path / "data" / "games"
+    game_dir.mkdir(parents=True, exist_ok=True)
 
-    def setUp(self):
-        """Set up a temporary directory and the test game data file."""
-        self.temp_dir_obj = tempfile.TemporaryDirectory()
-        self.temp_dir_path = Path(self.temp_dir_obj.name)
+    file_path = game_dir / f"{TEST_GAME_ID}.json"
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(TEST_GAME_DATA, f)
 
-        self.storage_base_path = self.temp_dir_path / "data" / "games"
-        self.storage_base_path.mkdir(parents=True, exist_ok=True)
+    storage = FileStorage(valid_config, dummy_logger)
+    feeder = FileGameFeeder(
+        game_id=TEST_GAME_ID, storage=storage, logger=dummy_logger
+    )
+    return feeder
 
-        self.test_file_path = self.storage_base_path / f"{TEST_GAME_ID}.json"
-        # Write the full game data structure to the file
-        with open(self.test_file_path, 'w') as f:
-            json.dump(TEST_GAME_DATA, f) # Use the full structure
 
-        self.storage = BackendFileStorage(base_path=str(self.storage_base_path))
-        self.feeder = FileGameFeeder(game_id=TEST_GAME_ID, storage=self.storage)
+@pytest.mark.asyncio
+async def test_initialization(file_game_feeder: FileGameFeeder) -> None:
+    feeder = file_game_feeder
+    assert isinstance(feeder, BaseGameFeeder)
+    assert feeder.game_id == TEST_GAME_ID
+    assert isinstance(feeder._buffer, deque)
+    assert len(feeder._buffer) == 0
+    assert not feeder._exhausted
+    assert feeder.file_path.exists()
 
-    def tearDown(self):
-        """Clean up the temporary directory."""
-        self.temp_dir_obj.cleanup()
 
-    def test_initialization(self):
-        """Test correct initialization of FileGameFeeder."""
-        self.assertIsInstance(self.feeder, BaseGameFeeder)
-        self.assertEqual(self.feeder.game_id, TEST_GAME_ID)
-        self.assertEqual(self.feeder.storage, self.storage)
-        expected_path = self.storage.get_game_path(TEST_GAME_ID)
-        self.assertEqual(self.feeder.file_path, expected_path)
-        self.assertEqual(self.feeder.file_path, self.test_file_path)
-        self.assertIsInstance(self.feeder._buffer, deque)
-        self.assertEqual(len(self.feeder._buffer), 0)
-        self.assertFalse(self.feeder._exhausted)
+@pytest.mark.asyncio
+async def test_load_batch_populates_buffer_and_exhausts(
+    file_game_feeder: FileGameFeeder,
+) -> None:
+    feeder = file_game_feeder
+    assert not feeder._exhausted
+    assert len(feeder._buffer) == 0
 
-    async def test_load_batch_populates_buffer_and_exhausts(self):
-        """Test that _load_batch (called via get_next_score) loads all data and sets exhausted."""
-        self.assertFalse(self.feeder._exhausted)
-        self.assertEqual(len(self.feeder._buffer), 0)
+    score_iterator = feeder.get_next_score()
+    first_score = await score_iterator.__anext__()
 
-        score_iterator = self.feeder.get_next_score()
-        first_score = await score_iterator.__anext__()
+    assert first_score == TEST_SCORES_LIST[0]
+    assert feeder._exhausted
+    assert len(feeder._buffer) == len(TEST_SCORES_LIST) - 1
+    assert feeder._buffer == deque(TEST_SCORES_LIST[1:])
 
-        # Compare with the first item from the correct list
-        self.assertEqual(first_score, TEST_SCORES_LIST[0])
-        self.assertTrue(self.feeder._exhausted, "Feeder should be exhausted after loading from file")
-        self.assertEqual(len(self.feeder._buffer), len(TEST_SCORES_LIST) - 1)
-        # Check buffer contains the rest of the items
-        expected_remaining = deque(TEST_SCORES_LIST[1:])
-        self.assertEqual(self.feeder._buffer, expected_remaining)
 
-    async def test_get_next_score_yields_all_scores_in_order(self):
-        """Test iterating through all scores using get_next_score."""
-        collected_scores = []
-        score_iterator = self.feeder.get_next_score()
-        async for score in score_iterator:
-            collected_scores.append(score)
+@pytest.mark.asyncio
+async def test_get_next_score_yields_all_scores_in_order(
+    file_game_feeder: FileGameFeeder,
+) -> None:
+    feeder = file_game_feeder
+    collected_scores = []
 
-        self.assertEqual(len(collected_scores), len(TEST_SCORES_LIST))
-        # Compare with the correct list
-        self.assertListEqual(collected_scores, TEST_SCORES_LIST)
-        self.assertTrue(self.feeder._exhausted)
-        self.assertEqual(len(self.feeder._buffer), 0)
+    async for score in feeder.get_next_score():
+        collected_scores.append(score)
 
-    async def test_get_next_score_stops_after_exhaustion(self):
-        """Test that StopAsyncIteration is raised after all scores are yielded."""
-        score_iterator = self.feeder.get_next_score()
-        async for _ in score_iterator:
-            pass
-        with self.assertRaises(StopAsyncIteration):
-            await score_iterator.__anext__()
-        self.assertTrue(self.feeder._exhausted)
-        self.assertEqual(len(self.feeder._buffer), 0)
+    assert collected_scores == TEST_SCORES_LIST
+    assert feeder._exhausted
+    assert len(feeder._buffer) == 0
 
-    async def test_load_batch_file_not_found(self):
-        """Test behavior when the game data file does not exist."""
-        non_existent_game_id = "game_not_found_404"
-        feeder_no_file = FileGameFeeder(game_id=non_existent_game_id, storage=self.storage)
-        self.assertFalse(feeder_no_file.file_path.exists())
 
-        score_iterator = feeder_no_file.get_next_score()
-        with self.assertRaises(FileNotFoundError):
-            await score_iterator.__anext__()
-        self.assertTrue(feeder_no_file._exhausted)
-        self.assertEqual(len(feeder_no_file._buffer), 0)
+@pytest.mark.asyncio
+async def test_get_next_score_stops_after_exhaustion(
+    file_game_feeder: FileGameFeeder,
+) -> None:
+    feeder = file_game_feeder
+    async for _ in feeder.get_next_score():
+        pass
 
-    async def test_cleanup_clears_buffer(self):
-        """Test the cleanup method inherited/implemented."""
-        score_iterator = self.feeder.get_next_score()
-        await score_iterator.__anext__() # Load the data
-        self.assertNotEqual(len(self.feeder._buffer), 0)
+    with pytest.raises(StopAsyncIteration):
+        await feeder.get_next_score().__anext__()
 
-        await self.feeder.cleanup()
-        self.assertEqual(len(self.feeder._buffer), 0)
+    assert feeder._exhausted
+    assert len(feeder._buffer) == 0
 
-# Allow running the tests directly
-if __name__ == '__main__':
-    unittest.main()
+
+@pytest.mark.asyncio
+async def test_load_batch_file_not_found(
+    tmp_path: Path, dummy_logger: logging.Logger, valid_config: ConfigParser
+) -> None:
+    game_dir = tmp_path / "data" / "games"
+    game_dir.mkdir(parents=True, exist_ok=True)
+
+    storage = FileStorage(valid_config, dummy_logger)
+    missing_game_id = "game_not_found_404"
+    feeder = FileGameFeeder(
+        game_id=missing_game_id, storage=storage, logger=dummy_logger
+    )
+
+    assert not feeder.file_path.exists()
+
+    with pytest.raises(FileNotFoundError):
+        await feeder.get_next_score().__anext__()
+
+    assert feeder._exhausted
+    assert len(feeder._buffer) == 0
+
+
+@pytest.mark.asyncio
+async def test_cleanup_clears_buffer(file_game_feeder: FileGameFeeder) -> None:
+    feeder = file_game_feeder
+    await feeder.get_next_score().__anext__()  # Triggers loading
+    assert len(feeder._buffer) > 0
+
+    await feeder.cleanup()
+    assert len(feeder._buffer) == 0

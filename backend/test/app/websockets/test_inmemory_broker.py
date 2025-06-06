@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 import asyncio
 import unittest
-from typing import List, Any, AsyncIterator, Set
+from collections.abc import AsyncIterator
+from typing import Any
 
-from backend.app.broker.InMemoryMessageBroker import InMemoryMessageBroker
+from app.broker.memory_message_broker import InMemoryMessageBroker
 
-async def consume_messages(generator: AsyncIterator[Any], count: int, timeout: float = 1.0) -> List[Any]:
+
+async def consume_messages(
+    generator: AsyncIterator[Any], count: int, timeout: float = 1.0
+) -> list[Any]:
     """Helper coroutine to consume a specific number of messages."""
     messages = []
     for _ in range(count):
@@ -16,6 +22,7 @@ async def consume_messages(generator: AsyncIterator[Any], count: int, timeout: f
             # Stop if generator ends early or times out
             raise e
     return messages
+
 
 class TestInMemoryMessageBroker(unittest.IsolatedAsyncioTestCase):
     """Test suite for the InMemoryMessageBroker using unittest."""
@@ -30,7 +37,6 @@ class TestInMemoryMessageBroker(unittest.IsolatedAsyncioTestCase):
         """Shut down the broker after each test."""
         await self.broker.shutdown()
 
-
     async def test_publish_subscribe_single(self):
         """Test basic publish/subscribe for a single subscriber."""
         game_id = "game1"
@@ -38,7 +44,7 @@ class TestInMemoryMessageBroker(unittest.IsolatedAsyncioTestCase):
         message_to_send = {"score": "15-0"}
 
         subscriber_gen = self.broker.subscribe(game_id, channel)
-        await asyncio.sleep(0.01) # Allow subscription task switch
+        await asyncio.sleep(0.01)  # Allow subscription task switch
 
         publish_count = await self.broker.publish(game_id, channel, message_to_send)
         self.assertEqual(publish_count, 1)
@@ -47,7 +53,7 @@ class TestInMemoryMessageBroker(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(received_messages), 1)
         self.assertEqual(received_messages[0], message_to_send)
-        await subscriber_gen.aclose() # Clean up generator
+        await subscriber_gen.aclose()  # Clean up generator
 
     async def test_publish_subscribe_multiple_subscribers(self):
         """Test publishing to multiple subscribers on the same channel."""
@@ -65,14 +71,14 @@ class TestInMemoryMessageBroker(unittest.IsolatedAsyncioTestCase):
         # Consume messages concurrently
         results = await asyncio.gather(
             consume_messages(sub1_gen, 1, timeout=0.5),
-            consume_messages(sub2_gen, 1, timeout=0.5)
+            consume_messages(sub2_gen, 1, timeout=0.5),
         )
 
         self.assertEqual(len(results[0]), 1)
         self.assertEqual(results[0][0], message)
         self.assertEqual(len(results[1]), 1)
         self.assertEqual(results[1][0], message)
-        await asyncio.gather(sub1_gen.aclose(), sub2_gen.aclose()) # Cleanup
+        await asyncio.gather(sub1_gen.aclose(), sub2_gen.aclose())  # Cleanup
 
     async def test_publish_no_subscribers(self):
         """Test publishing to a channel with no subscribers."""
@@ -100,7 +106,7 @@ class TestInMemoryMessageBroker(unittest.IsolatedAsyncioTestCase):
         received = await consume_messages(subscriber_gen, 2, timeout=0.5)
 
         self.assertEqual(len(received), 2)
-        self.assertListEqual(received, messages) # Use assertListEqual for lists
+        self.assertListEqual(received, messages)  # Use assertListEqual for lists
         await subscriber_gen.aclose()
 
     async def test_isolation_between_games(self):
@@ -172,7 +178,7 @@ class TestInMemoryMessageBroker(unittest.IsolatedAsyncioTestCase):
         game1 = "bcast_g1"
         game2 = "bcast_g2"
         channel_x = "alert"
-        channel_y = "status" # Should not receive broadcast
+        channel_y = "status"  # Should not receive broadcast
         message = {"broadcast": "important"}
 
         sub_g1_x = self.broker.subscribe(game1, channel_x)
@@ -181,7 +187,7 @@ class TestInMemoryMessageBroker(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.01)
 
         broadcast_count = await self.broker.broadcast(channel_x, message)
-        self.assertEqual(broadcast_count, 2) # Only subscribers to channel_x
+        self.assertEqual(broadcast_count, 2)  # Only subscribers to channel_x
 
         # Check recipients
         received_g1_x = await consume_messages(sub_g1_x, 1, timeout=0.5)
@@ -216,16 +222,16 @@ class TestInMemoryMessageBroker(unittest.IsolatedAsyncioTestCase):
 
         # Try consuming again, should raise TimeoutError or StopAsyncIteration
         with self.assertRaises((StopAsyncIteration, asyncio.TimeoutError)):
-             await consume_messages(subscriber_gen, 1, timeout=0.1)
+            await consume_messages(subscriber_gen, 1, timeout=0.1)
 
         # Also test that the generator doesn't yield the None sentinel
         messages_after_shutdown = []
         try:
             # This loop should not run or yield anything other than return silently or raise
             async for msg in subscriber_gen:
-                 messages_after_shutdown.append(msg)
+                messages_after_shutdown.append(msg)
         except Exception:
-            pass # Might potentially raise errors after shutdown/close
+            pass  # Might potentially raise errors after shutdown/close
         self.assertListEqual(messages_after_shutdown, [])
 
     async def test_shutdown_prevents_publish(self):
@@ -239,7 +245,9 @@ class TestInMemoryMessageBroker(unittest.IsolatedAsyncioTestCase):
 
         await self.broker.shutdown()
 
-        publish_count = await self.broker.publish(game_id, channel, {"after": "shutdown"})
+        publish_count = await self.broker.publish(
+            game_id, channel, {"after": "shutdown"}
+        )
         self.assertEqual(publish_count, 0)
         # No need to close generator, shutdown handles it
 
@@ -253,7 +261,9 @@ class TestInMemoryMessageBroker(unittest.IsolatedAsyncioTestCase):
 
         # --- Find the internal queue associated with this subscriber ---
         # This relies on inspecting internal state, acceptable for testing.
-        queues_in_broker: Set[asyncio.Queue] = self._subscribers_ref[game_id][channel]
+        queues_in_broker: set[asyncio.Queue] = self._subscribers_ref[game_id][
+            channel
+        ]
         self.assertEqual(len(queues_in_broker), 1)
 
         # Consume one message to advance the generator past initial setup
@@ -269,8 +279,9 @@ class TestInMemoryMessageBroker(unittest.IsolatedAsyncioTestCase):
 
         # Check subscriber queue is removed internally
         # Use the reference captured in asyncSetUp
-        self.assertNotIn(game_id, self._subscribers_ref) # Game should be gone if channel was last one
-        
+        self.assertNotIn(
+            game_id, self._subscribers_ref
+        )  # Game should be gone if channel was last one
 
         # Verify by publishing again - should reach 0 subscribers
         publish_count = await self.broker.publish(game_id, channel, {"msg": 2})
@@ -282,7 +293,7 @@ class TestInMemoryMessageBroker(unittest.IsolatedAsyncioTestCase):
         channel = "signal"
 
         subscriber_gen = self.broker.subscribe(game_id, channel)
-        await asyncio.sleep(0.01) # Allow subscription to register
+        await asyncio.sleep(0.01)  # Allow subscription to register
 
         # Start the shutdown process. This will put None in the queue.
         shutdown_task = asyncio.create_task(self.broker.shutdown())

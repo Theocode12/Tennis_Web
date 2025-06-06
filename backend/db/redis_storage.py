@@ -4,13 +4,13 @@ import configparser
 from logging import Logger
 
 import redis.asyncio as redis
-from utils.logger import get_logger  # Adjust import path to fit your structure
 
 from app.shared.lib.singleton_metaclass import SingletonMeta
 from db.exceptions.redis_connection_error import RedisConnectionError
+from utils.logger import get_logger  # Adjust import path to fit your structure
 
 
-class BackendRedisStorage(metaclass=SingletonMeta):
+class RedisStorage(metaclass=SingletonMeta):
     """
     Manages a singleton Redis connection pool for backend operations.
 
@@ -76,9 +76,8 @@ class BackendRedisStorage(metaclass=SingletonMeta):
             RuntimeError: If the connection pool has not been initialized.
         """
         if self.pool is None:
-            error_msg = (
-                "Redis connection pool is not initialized. Call connect() first."
-            )
+            error_msg = "Redis connection pool is not initialized. \
+                         Did you forget to call connect()?"
             self.logger.error(error_msg)
             raise RuntimeError(error_msg)
 

@@ -3,10 +3,9 @@ from __future__ import annotations
 import logging
 from configparser import ConfigParser
 
-from db.file_storage import BackendFileStorage
-from db.redis_storage import BackendRedisStorage
-
 from app.scheduler.game_feeder import BaseGameFeeder, FileGameFeeder, RedisGameFeeder
+from db.file_storage import FileStorage
+from db.redis_storage import RedisStorage
 
 
 def create_game_feeder(
@@ -14,8 +13,8 @@ def create_game_feeder(
     config: ConfigParser,
     logger: logging.Logger | None = None,
     *,
-    filestorage: BackendFileStorage | None = None,
-    redisstorage: BackendRedisStorage | None = None,
+    filestorage: FileStorage | None = None,
+    redisstorage: RedisStorage | None = None,
 ) -> BaseGameFeeder:
     """
     Factory function to create the appropriate GameFeeder instance.
@@ -45,13 +44,13 @@ def create_game_feeder(
     if feeder_type == "redis":
         if not redisstorage:
             logger.debug("No Redis storage provided; initializing new instance.")
-            redisstorage = BackendRedisStorage(config, logger)
+            redisstorage = RedisStorage(config, logger)
         return RedisGameFeeder(game_id, redisstorage)
 
     elif feeder_type == "file":
         if not filestorage:
             logger.debug("No file storage provided; initializing new instance.")
-            filestorage = BackendFileStorage(config, logger)
+            filestorage = FileStorage(config, logger)
         return FileGameFeeder(game_id, filestorage)
 
     else:
