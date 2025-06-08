@@ -12,7 +12,7 @@ import redis.asyncio as redis
 
 from db.exceptions.redis_connection_error import RedisConnectionError
 from db.file_storage import FileStorage
-from db.redis_storage import RedisStorage
+from db.redis_storage import RedisStorageBase
 from utils.logger import get_logger
 
 
@@ -124,7 +124,7 @@ class RedisGameFeeder(BaseGameFeeder):
     def __init__(
         self,
         game_id: str,
-        storage: RedisStorage,
+        storage: RedisStorageBase,
         batch_size: int = 30,
         logger: Logger | None = None,
     ) -> None:

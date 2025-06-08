@@ -5,17 +5,15 @@ import configparser
 import logging
 from typing import Any
 
-from utils.load_config import load_config
-from utils.logger import get_logger
-
 from app.broker.message_broker import MessageBroker
 from app.scheduler.game_feeder import BaseGameFeeder
 from app.scheduler.game_feeder_factory import create_game_feeder
 from app.scheduler.scheduler import BaseScheduler, GameScheduler
-from app.shared.lib.singleton_metaclass import SingletonMeta
+from utils.load_config import load_config
+from utils.logger import get_logger
 
 
-class SchedulerManager(metaclass=SingletonMeta):
+class SchedulerManager:
     """
     Manages the lifecycle of GameScheduler instances.
 
@@ -218,7 +216,6 @@ class SchedulerManager(metaclass=SingletonMeta):
                 self.logger.error(
                     f"Error during task cancellation: {e}", exc_info=True
                 )
-
         self.logger.info(f"Scheduler cleanup for game {game_id} complete.")
 
     async def shutdown(self) -> None:

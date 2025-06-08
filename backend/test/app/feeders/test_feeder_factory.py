@@ -9,7 +9,7 @@ import pytest
 from app.scheduler.game_feeder import FileGameFeeder, RedisGameFeeder
 from app.scheduler.game_feeder_factory import create_game_feeder
 from db.file_storage import FileStorage
-from db.redis_storage import RedisStorage
+from db.redis_storage import RedisStorageBase as RedisStorage
 
 TEST_GAME_ID = "test_001"
 

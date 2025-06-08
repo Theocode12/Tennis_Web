@@ -12,7 +12,7 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 
 from app.broker.message_broker import MessageBroker
 from app.shared.enums.broker_channels import BrokerChannels
-from db.redis_storage import RedisStorage
+from db.redis_storage import RedisStorageSingleton as RedisStorage
 
 
 class RedisMessageBroker(MessageBroker):

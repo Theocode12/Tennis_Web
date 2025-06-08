@@ -8,12 +8,11 @@ from collections.abc import AsyncGenerator, Awaitable, Callable
 from enum import StrEnum, auto
 from typing import Any
 
-from utils.load_config import load_config
-from utils.logger import get_logger
-
 from app.broker.message_broker import MessageBroker
 from app.shared.enums.broker_channels import BrokerChannels
 from app.shared.enums.control_types import Controls
+from utils.load_config import load_config
+from utils.logger import get_logger
 
 from .game_feeder import BaseGameFeeder
 

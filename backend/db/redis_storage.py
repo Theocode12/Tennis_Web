@@ -10,7 +10,7 @@ from db.exceptions.redis_connection_error import RedisConnectionError
 from utils.logger import get_logger  # Adjust import path to fit your structure
 
 
-class RedisStorage(metaclass=SingletonMeta):
+class RedisStorageBase:
     """
     Manages a singleton Redis connection pool for backend operations.
 
@@ -92,3 +92,7 @@ class RedisStorage(metaclass=SingletonMeta):
             self.logger.info("Closing Redis connection pool.")
             await self.pool.aclose()
             self.logger.debug("Redis pool closed.")
+
+
+class RedisStorageSingleton(RedisStorageBase, metaclass=SingletonMeta):
+    pass

@@ -9,7 +9,7 @@ from typing import Any, cast
 import pytest
 
 from app.scheduler.game_feeder import RedisGameFeeder
-from db.redis_storage import RedisStorage
+from db.redis_storage import RedisStorageBase as RedisStorage
 
 TEST_GAME_ID = "redis_game_123"
 TEST_SCORES_LIST = [

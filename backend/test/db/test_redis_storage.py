@@ -8,7 +8,7 @@ import pytest
 import redis.asyncio as redis
 
 from db.exceptions.redis_connection_error import RedisConnectionError
-from db.redis_storage import RedisStorage
+from db.redis_storage import RedisStorageBase as RedisStorage
 
 
 @pytest.mark.asyncio

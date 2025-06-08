@@ -5,7 +5,7 @@ from configparser import ConfigParser
 
 from app.scheduler.game_feeder import BaseGameFeeder, FileGameFeeder, RedisGameFeeder
 from db.file_storage import FileStorage
-from db.redis_storage import RedisStorage
+from db.redis_storage import RedisStorageSingleton as RedisStorage
 
 
 def create_game_feeder(
