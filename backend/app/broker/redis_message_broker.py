@@ -103,7 +103,7 @@ class RedisMessageBroker(MessageBroker):
         if self.redis is None:
             raise RedisConnectionError("Cannot subscribe: Redis is not connected.")
 
-        if isinstance(channels, str):
+        if isinstance(channels, BrokerChannels):
             channels_list = [channels]
         elif not channels:
 

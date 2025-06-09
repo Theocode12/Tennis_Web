@@ -6,12 +6,12 @@ import logging
 from typing import TYPE_CHECKING
 
 from socketio import AsyncServer, Manager  # type: ignore
-from utils.load_config import load_config
-from utils.logger import get_logger
 
 from app.broker.message_broker import MessageBroker
 from app.core.ws_auth import AuthService
 from app.scheduler.manager import SchedulerManager
+from utils.load_config import load_config
+from utils.logger import get_logger
 
 if TYPE_CHECKING:
     from app.websockets_api.routes.router import Router

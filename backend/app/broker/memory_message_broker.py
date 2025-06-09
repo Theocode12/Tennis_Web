@@ -88,7 +88,7 @@ class InMemoryMessageBroker(MessageBroker):
         Returns:
             AsyncGenerator[Any, None]: Yields messages from the subscribed channels.
         """
-        if isinstance(channels, str):
+        if isinstance(channels, BrokerChannels):
             channels_list = [channels]
         elif not channels:
 
@@ -116,6 +116,9 @@ class InMemoryMessageBroker(MessageBroker):
                         message = await asyncio.wait_for(queue.get(), timeout=1.0)
                         if isinstance(message, dict) and message.get("__sentinel__"):
                             break
+                        self.logger.debug(
+                            f"InMemoryMessageBroker: Received message {message}."
+                        )
                         yield message
                     except asyncio.TimeoutError:
                         continue
@@ -137,19 +140,25 @@ class InMemoryMessageBroker(MessageBroker):
             channels (list[BrokerChannels]): Channels to remove the queue from.
             queue (asyncio.Queue[Any]): The queue to remove.
         """
-        game_data = self._subscribers.get(game_id)
-        if not game_data:
+        self.logger.debug(
+            f"Unsubscribing queue from channels :{channels}. Game id {game_id}."
+        )
+        channel_map = self._subscribers.get(game_id)
+        if not channel_map:
             return
 
         for channel in channels:
-            channel_subscribers = game_data.get(channel)
-            if channel_subscribers:
-                channel_subscribers.discard(queue)
-                if not channel_subscribers:
-                    del game_data[channel]
+            subscriber_queues = channel_map.get(channel)
+            if subscriber_queues:
+                subscriber_queues.discard(queue)
+                if not subscriber_queues:
+                    del channel_map[channel]
 
-        if not game_data:
+        if not channel_map:
             self._subscribers.pop(game_id, None)
+        self.logger.debug(
+            f"Unsubscribe by listener completed for game_id {game_id}."
+        )
 
     async def broadcast(self, channel: str, message: Any) -> int:
         """
@@ -219,6 +228,7 @@ class InMemoryMessageBroker(MessageBroker):
             for channel_queues in game_channels.values():
                 all_queues.update(channel_queues)
 
+        # Actively unblock consumers
         tasks = [q.put({"__sentinel__": True}) for q in all_queues]
         await asyncio.gather(*tasks, return_exceptions=True)
 

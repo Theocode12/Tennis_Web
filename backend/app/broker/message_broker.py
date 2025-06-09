@@ -6,10 +6,9 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from typing import Any
 
+from app.shared.enums.broker_channels import BrokerChannels
 from utils.load_config import load_config
 from utils.logger import get_logger
-
-from app.shared.enums.broker_channels import BrokerChannels
 
 
 class MessageBroker(ABC):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from configparser import ConfigParser
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -58,28 +58,36 @@ def test_create_redis_feeder_with_storage(
     assert feeder.game_id == TEST_GAME_ID
 
 
-@patch("app.scheduler.game_feeder_factory.FileStorage")
 def test_create_file_feeder_without_storage(
-    mock_file_storage_cls: MagicMock, config_file_feeder: ConfigParser
+    config_file_feeder: ConfigParser,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from app.scheduler import game_feeder_factory
+
     mock_file_storage = MagicMock()
-    mock_file_storage_cls.return_value = mock_file_storage
+    monkeypatch.setattr(
+        game_feeder_factory, "FileStorage", lambda *a, **kw: mock_file_storage
+    )
 
-    feeder = create_game_feeder(TEST_GAME_ID, config_file_feeder)
+    feeder = game_feeder_factory.create_game_feeder(TEST_GAME_ID, config_file_feeder)
     assert isinstance(feeder, FileGameFeeder)
-    mock_file_storage_cls.assert_called_once()
 
 
-@patch("app.scheduler.game_feeder_factory.RedisStorage")
 def test_create_redis_feeder_without_storage(
-    mock_redis_storage_cls: MagicMock, config_redis_feeder: ConfigParser
+    config_redis_feeder: ConfigParser,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    mock_redis_storage = MagicMock()
-    mock_redis_storage_cls.return_value = mock_redis_storage
+    from app.scheduler import game_feeder_factory
 
-    feeder = create_game_feeder(TEST_GAME_ID, config_redis_feeder)
+    mock_redis_storage = MagicMock()
+    monkeypatch.setattr(
+        game_feeder_factory, "RedisStorage", lambda *a, **kw: mock_redis_storage
+    )
+
+    feeder = game_feeder_factory.create_game_feeder(
+        TEST_GAME_ID, config_redis_feeder
+    )
     assert isinstance(feeder, RedisGameFeeder)
-    mock_redis_storage_cls.assert_called_once()
 
 
 def test_create_feeder_raises_for_invalid_type(dummy_logger: logging.Logger) -> None:

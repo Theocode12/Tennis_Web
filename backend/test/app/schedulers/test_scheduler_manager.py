@@ -25,12 +25,9 @@ class DummyScheduler:
         self._stop_event = asyncio.Event()
 
     async def run(self) -> None:
-        print(f"Scheduler for {self.game_id} started.")
         await self._stop_event.wait()
-        print(f"Scheduler for {self.game_id} stopped.")
 
     def stop(self) -> None:
-        print("stop is called")
         self._stop_event.set()
 
     async def get_metadata(self) -> dict[str, bool]:
@@ -125,10 +122,16 @@ async def test_get_game_data(
     monkeypatch.setattr("app.scheduler.manager.GameScheduler", DummyScheduler)
 
     game_id = "game-3"
-    await scheduler_manager.create_or_get_scheduler(game_id)
+    _, task = await scheduler_manager.create_or_get_scheduler(game_id)
 
     metadata = await scheduler_manager.get_game_data(game_id)
     assert metadata == {"metadata": True}
+
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
 
 
 @pytest.mark.asyncio

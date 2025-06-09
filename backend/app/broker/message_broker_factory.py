@@ -3,7 +3,9 @@ from __future__ import annotations
 import configparser
 import logging
 
+from app.broker.memory_message_broker import InMemoryMessageBroker
 from app.broker.message_broker import MessageBroker
+from app.broker.redis_message_broker import RedisMessageBroker
 
 
 def get_message_broker(
@@ -32,13 +34,9 @@ def get_message_broker(
     logger.debug(f"Message broker type: '{broker_type}'")
 
     if broker_type == "redis":
-        from app.broker.redis_message_broker import RedisMessageBroker
-
         return RedisMessageBroker(config, logger)
 
     elif broker_type == "memory":
-        from app.broker.memory_message_broker import InMemoryMessageBroker
-
         return InMemoryMessageBroker(config, logger)
 
     else:

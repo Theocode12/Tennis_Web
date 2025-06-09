@@ -10,6 +10,7 @@ from typing import Any
 
 from app.broker.message_broker import MessageBroker
 from app.shared.enums.broker_channels import BrokerChannels
+from app.shared.enums.client_events import ClientEvent
 from app.shared.enums.control_types import Controls
 from utils.load_config import load_config
 from utils.logger import get_logger
@@ -21,7 +22,7 @@ class SchedulerState(StrEnum):
     NOT_STARTED = auto()
     PAUSED = auto()
     ONGOING = auto()
-    TERMINATED = auto()
+    AUTOPLAY = auto()
 
 
 class SchedulerCommands(StrEnum):
@@ -47,7 +48,7 @@ class BaseScheduler(ABC):
     async def get_metadata(self) -> dict[str, Any]:
         raise NotImplementedError
 
-    async def publish(self, channel: str, message: Any) -> None:
+    async def publish(self, channel: BrokerChannels, message: Any) -> None:
         """Publish data to the game channel."""
         await self.broker.publish(self.game_id, channel, message)
 
@@ -88,7 +89,7 @@ class GameScheduler(BaseScheduler):
     feeder and publishing them.
     """
 
-    _current_sleep: Task[None] | None
+    score_update_sleep_task: Task[None] | None
     feeder: BaseGameFeeder
     pause_event: Event
     speed: float
@@ -121,7 +122,7 @@ class GameScheduler(BaseScheduler):
         self.feeder = feeder
         self.pause_event = Event()
         self.speed = self.config.getfloat("app", "defaultGameSpeed", fallback=1.0)
-        self._current_sleep = None
+        self.score_update_sleep_task: Task[None] | None = None
         self.state = SchedulerState.NOT_STARTED
         self.pause_timeout_secs = self.config.getfloat(
             "app", "pauseTimeoutSecs", fallback=60.0
@@ -155,7 +156,10 @@ class GameScheduler(BaseScheduler):
         Returns:
             dict[str, Any]: Payload formatted for broker publishing.
         """
-        return {"data": score, "type": "score_update"}  # fix with message type
+        return {
+            "data": score,
+            "type": ClientEvent.GAME_SCORE_UPDATE,
+        }
 
     def _start_pause_timer(self) -> None:
         """Starts a TTL countdown for paused state, if configured."""
@@ -170,31 +174,33 @@ class GameScheduler(BaseScheduler):
                     f"too long (>{self.pause_timeout_secs}s);"
                     "SHUTTING DOWN SCHEDULER ..."
                 )
-                await self.shutdown_due_to_timeout()
+                await self.resume_due_to_timeout()
 
         self._pause_timer = create_task(_timer())
-
-    async def shutdown_due_to_timeout(self) -> None:
-        """
-        Handles cleanup when the scheduler is paused for too long.
-
-        Side Effects:
-            - Cancels the game loop.
-            - Sets internal state to TERMINATED or similar.
-        """
-        self.logger.error(
-            f"Shutting down scheduler for {self.game_id} due to pause timeout."
-        )
-        self.state = SchedulerState.TERMINATED  # Define this in your enum
-        self.pause_event.set()  # Unblock the pause wait
-        if self._current_sleep and not self._current_sleep.done():
-            self._current_sleep.cancel()
 
     def _cancel_pause_timer(self) -> None:
         """Cancels the pause TTL countdown, if running."""
         if self._pause_timer and not self._pause_timer.done():
+            self.logger.debug("Canceling Pause Timer")
             self._pause_timer.cancel()
             self._pause_timer = None
+
+    async def resume_due_to_timeout(self) -> None:
+        """
+        Handles AutoPlay when the scheduler is paused for too long.
+
+        Side Effects:
+            - Cancels the game loop.
+            - Sets internal state to AUTOPLAY.
+        """
+        self.logger.info(
+            f"Resuming scheduler for {self.game_id} due to pause timeout."
+        )
+        self.state = SchedulerState.AUTOPLAY
+        self.pause_event.set()  # Unblock the pause wait
+        if self.score_update_sleep_task and not self.score_update_sleep_task.done():
+            self.score_update_sleep_task.cancel()
+        self._cancel_pause_timer()
 
     async def run(self) -> None:
         """
@@ -217,14 +223,14 @@ class GameScheduler(BaseScheduler):
                 )
 
                 try:
-                    self._current_sleep = create_task(sleep(self.speed))
-                    await self._current_sleep
+                    self.score_update_sleep_task = create_task(sleep(self.speed))
+                    await self.score_update_sleep_task
                 except CancelledError:
                     self.logger.debug(
                         "Sleep interrupted during pause or speed change."
                     )
                 finally:
-                    self._current_sleep = None
+                    self.score_update_sleep_task = None
 
         except Exception:
             self.logger.exception(f"Run loop error for game_id={self.game_id}")
@@ -265,8 +271,8 @@ class GameScheduler(BaseScheduler):
         self.state = SchedulerState.PAUSED
         self._start_pause_timer()
 
-        if self._current_sleep and not self._current_sleep.done():
-            self._current_sleep.cancel()
+        if self.score_update_sleep_task and not self.score_update_sleep_task.done():
+            self.score_update_sleep_task.cancel()
 
     async def resume(self) -> None:
         """
@@ -303,8 +309,9 @@ class GameScheduler(BaseScheduler):
         )
         self.speed = new_speed
 
-        if self._current_sleep and not self._current_sleep.done():
-            self._current_sleep.cancel()
+        if self.score_update_sleep_task and not self.score_update_sleep_task.done():
+            self.logger.debug("Cancelling score update sleep task if available")
+            self.score_update_sleep_task.cancel()
 
     async def subscribe_to_controls(self) -> None:
         """

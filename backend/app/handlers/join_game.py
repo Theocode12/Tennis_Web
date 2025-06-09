@@ -86,7 +86,7 @@ async def listen_to_broker_channels(
             client_event = None
             client_payload_data = {}
 
-            if msg_type_str == "score_update":
+            if msg_type_str == ClientEvent.GAME_SCORE_UPDATE:
                 client_event = ClientEvent.GAME_SCORE_UPDATE
                 score_payload = message_data.get("data")
                 if isinstance(score_payload, dict):
