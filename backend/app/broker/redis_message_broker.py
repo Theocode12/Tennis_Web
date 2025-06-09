@@ -31,7 +31,7 @@ class RedisMessageBroker(MessageBroker):
         super().__init__(config, logger)
         self.redis_store = redis_store or RedisStorage(self.config, self.logger)
         self.redis: Redis | None = None
-        self._active_pubsubs: set[tuple[PubSub, list[BrokerChannels]]] = set()
+        self._active_pubsubs: set[tuple[PubSub, tuple[BrokerChannels, ...]]] = set()
         self.logger.info("RedisMessageBroker initialized.")
 
     async def connect(self) -> None:
@@ -53,7 +53,22 @@ class RedisMessageBroker(MessageBroker):
             self.logger.error(f"{err_msg}: {e}")
             raise RedisConnectionError(err_msg) from e
 
-    async def publish(self, game_id: str, channel: str, message: Any) -> int:
+    def _get_full_channel(self, game_id: str, channel: BrokerChannels) -> str:
+        """
+        Generate the full Redis channel name using game_id and channel.
+
+        Args:
+            game_id (str): The game identifier to namespace the channel.
+            channel (BrokerChannels): The channel to be used in the Redis channel.
+
+        Returns:
+            str: The full channel name (game_id:channel).
+        """
+        return f"game:{game_id}:{channel}"
+
+    async def publish(
+        self, game_id: str, channel: BrokerChannels, message: Any
+    ) -> int:
         """
         Publish a message to a specific Redis channel scoped by the game_id.
 
@@ -68,7 +83,7 @@ class RedisMessageBroker(MessageBroker):
         Raises:
             RedisConnectionError: If Redis is not connected.
         """
-        full_channel = f"{game_id}:{channel}"
+        full_channel = self._get_full_channel(game_id, channel)
         if self.redis is not None:
             try:
                 num_clients = await self.redis.publish(
@@ -102,23 +117,23 @@ class RedisMessageBroker(MessageBroker):
         """
         if self.redis is None:
             raise RedisConnectionError("Cannot subscribe: Redis is not connected.")
-
+        channels_list: tuple[BrokerChannels, ...]
         if isinstance(channels, BrokerChannels):
-            channels_list = [channels]
-        elif not channels:
+            channels_list = (channels,)
+        elif len(channels) == 0:
 
             async def empty_generator() -> AsyncGenerator[Any, None]:
                 yield
 
             return empty_generator()
         else:
-            channels_list = channels
+            channels_list = tuple(channels)
 
         client = await self.redis_store.get_client()
         pubsub = client.pubsub()
 
         for channel in channels_list:
-            full_channel = f"{game_id}:{channel}"
+            full_channel = self._get_full_channel(game_id, channel)
             await pubsub.subscribe(full_channel)
 
         self._active_pubsubs.add((pubsub, channels_list))
@@ -129,6 +144,9 @@ class RedisMessageBroker(MessageBroker):
         async def generator() -> AsyncGenerator[Any, None]:
             try:
                 async for message in pubsub.listen():
+                    self.logger.debug(
+                        f"Received msg on channel {message['channel']}: {message}"
+                    )
                     if message["type"] == "message":
                         try:
                             data = json.loads(message["data"])
@@ -139,7 +157,7 @@ class RedisMessageBroker(MessageBroker):
                             self.logger.warning(f"Invalid JSON received: {e}")
             finally:
                 for channel in channels_list:
-                    full_channel = f"{game_id}:{channel}"
+                    full_channel = self._get_full_channel(game_id, channel)
                     await pubsub.unsubscribe(full_channel)
                 self.logger.info(
                     "Unsubscribed from channels: "
@@ -147,33 +165,6 @@ class RedisMessageBroker(MessageBroker):
                 )
 
         return generator()
-
-    async def broadcast(self, channel: str, message: Any) -> int:  # TO FIX
-        """
-        Broadcast a message to all subscribers using a wildcard pattern channel.
-
-        Args:
-            channel (str): Channel name (without game_id prefix).
-            message (Any): Data to be sent.
-
-        Returns:
-            int: Number of clients that received the message.
-
-        Raises:
-            RedisConnectionError: If Redis is not connected.
-        """
-        full_channel = f"*:{channel}"
-        if self.redis is not None:
-            try:
-                num_clients = await self.redis.publish(
-                    full_channel, json.dumps(message)
-                )
-                return cast(int, num_clients)
-            except Exception as e:
-                self.logger.error(f"Broker Failed to broadcast message: {e}")
-                raise
-        else:
-            raise RedisConnectionError("Cannot broadcast: Redis is not connected.")
 
     async def shutdown(self) -> None:
         """
@@ -188,8 +179,8 @@ class RedisMessageBroker(MessageBroker):
                 for channel in channels:
                     await self.redis.publish(channel, sentinel_message)
                 await pubsub.unsubscribe()
-                await pubsub.close()
+                await pubsub.aclose()  # type: ignore
 
-            await self.redis.close()
+            await self.redis.aclose()
             self._active_pubsubs.clear()
             self.logger.info("RedisMessageBroker shutdown completed.")

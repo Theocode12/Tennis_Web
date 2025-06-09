@@ -90,7 +90,7 @@ class InMemoryMessageBroker(MessageBroker):
         """
         if isinstance(channels, BrokerChannels):
             channels_list = [channels]
-        elif not channels:
+        elif len(channels) == 0:
 
             async def empty_generator() -> AsyncGenerator[Any, None]:
                 yield
@@ -159,58 +159,6 @@ class InMemoryMessageBroker(MessageBroker):
         self.logger.debug(
             f"Unsubscribe by listener completed for game_id {game_id}."
         )
-
-    async def broadcast(self, channel: str, message: Any) -> int:
-        """
-        Broadcast a message to all subscribers on a specific channel
-        across all game IDs.
-
-        Args:
-            channel (str): Channel to broadcast to.
-            message (Any): Message to be broadcast.
-
-        Returns:
-            int: Number of queues successfully notified.
-        """
-        if self._shutdown.is_set():
-            self.logger.warning(
-                "Broadcast ignored: InMemoryMessageBroker is shutting down."
-            )
-            return 0
-
-        total_notified = 0
-        tasks = []
-
-        for game_id in list(self._subscribers.keys()):
-            game_channels = self._subscribers.get(game_id)
-            if game_channels:
-                queues = game_channels.get(channel, set())
-                if queues:
-                    tasks.extend([q.put(message) for q in list(queues)])
-                    total_notified += len(queues)
-
-        if not tasks:
-            return 0
-
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        error_count = 0
-        for r in results:
-            if isinstance(r, Exception):
-                self.logger.error(
-                    "InMemoryMessageBroker: Broadcast error on"
-                    f" channel '{channel}': {r}",
-                    exc_info=r,
-                )
-                error_count += 1
-
-        actual_notified = total_notified - error_count
-        self.logger.debug(
-            f"InMemoryMessageBroker: Broadcast to '{channel}' reached "
-            f"{actual_notified} queues (of {total_notified})."
-        )
-
-        return actual_notified
 
     async def shutdown(self) -> None:
         """

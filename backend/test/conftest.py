@@ -13,13 +13,12 @@ async def is_redis_live() -> bool:
     try:
         client = redis.Redis.from_url("redis://localhost:6379/0")
         pong = await client.ping()
-        if not pong:
-            return False
-
-        await client.flushdb()
-        return True
+        if pong:
+            await client.flushdb()
+            return True
     except Exception:
-        return False
+        pass
+    return False
 
 
 @pytest.fixture

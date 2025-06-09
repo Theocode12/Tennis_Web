@@ -21,7 +21,9 @@ class MessageBroker(ABC):
         self.config = config or load_config()
 
     @abstractmethod
-    async def publish(self, game_id: str, channel: str, message: Any) -> int:
+    async def publish(
+        self, game_id: str, channel: BrokerChannels, message: Any
+    ) -> int:
         """Publish message to specific game/channel"""
         pass
 
@@ -35,11 +37,6 @@ class MessageBroker(ABC):
             yield
 
         return generator()
-
-    @abstractmethod
-    async def broadcast(self, channel: str, message: Any) -> int:
-        """Broadcast to all subscribers of a channel"""
-        pass
 
     @abstractmethod
     async def shutdown(self) -> None:

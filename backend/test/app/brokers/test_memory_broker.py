@@ -81,26 +81,6 @@ async def test_subscribe_and_unsubscribe_cleanup(
 
 
 @pytest.mark.asyncio
-async def test_broadcast_to_all_games(
-    broker: InMemoryMessageBroker,
-) -> None:
-    game_ids = ["game1", "game2"]
-    message = {"broadcast": True}
-    channel = BrokerChannels.SCORES_UPDATE
-
-    subscribers = []
-    for gid in game_ids:
-        gen = await broker.subscribe(gid, channel)
-        subscribers.append(asyncio.create_task(anext(gen)))
-
-    await broker.broadcast(channel, message)
-    results = await asyncio.gather(*subscribers)
-
-    for r in results:
-        assert r == message
-
-
-@pytest.mark.asyncio
 async def test_shutdown_sends_sentinel_and_clears_state(
     broker: InMemoryMessageBroker,
 ) -> None:
