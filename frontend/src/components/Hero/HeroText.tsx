@@ -1,5 +1,5 @@
 import { Box, Typography, Stack } from '@mui/material';
-import  CTAButton from './CTAButton';
+import CTAButton from './CTAButton';
 
 
 
@@ -35,7 +35,9 @@ export default function HeroText() {
       </Typography>
 
       <Stack direction="row" spacing={2}>
-        <CTAButton label='Get Started'/>
+        /** background = #a2a8ae color=black */
+        <CTAButton label='Get Started' />
+         /** background = #000000 color=white */
         <CTAButton label='Learn More' variant='outlined' />
       </Stack>
     </Box>
