@@ -136,11 +136,9 @@ class GameNamespace(AsyncNamespace):  # type: ignore[misc]
 
         try:
             schema_cls = route_definition.get("schema")
-            print(data)
             validated_data = (
                 data if schema_cls is None else schema_cls(**data).model_dump()
             )
-            print(validated_data)
         except ValidationError:
             error_msg = {"error": "Invalid data schema"}
             await self.emit(ClientEvent.ERROR.value, error_msg, to=sid)
