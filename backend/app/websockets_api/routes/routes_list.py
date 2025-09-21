@@ -12,12 +12,12 @@ from app.handlers.game_controls import (
     StartControlHandler,
 )
 from app.handlers.join_game import JoinGameHandler, JoinGameSchema
-from app.shared.enums.message_types import MessageType
+from app.shared.enums.game_event import GameEvent
 
-ROUTE_LIST: list[tuple[MessageType, type[BaseHandler], type[BaseModel] | None]] = [
-    (MessageType.GAME_CONTROL_START, StartControlHandler, GameControlSchema),
-    (MessageType.GAME_CONTROL_PAUSE, PauseControlHandler, GameControlSchema),
-    (MessageType.GAME_CONTROL_RESUME, ResumeControlHandler, GameControlSchema),
-    (MessageType.GAME_CONTROL_SPEED, SpeedControlHandler, SpeedControlSchema),
-    (MessageType.GAME_JOIN, JoinGameHandler, JoinGameSchema),
+ROUTE_LIST: list[tuple[GameEvent, type[BaseHandler], type[BaseModel] | None]] = [
+    (GameEvent.GAME_CONTROL_START, StartControlHandler, GameControlSchema),
+    (GameEvent.GAME_CONTROL_PAUSE, PauseControlHandler, GameControlSchema),
+    (GameEvent.GAME_CONTROL_RESUME, ResumeControlHandler, GameControlSchema),
+    (GameEvent.GAME_CONTROL_SPEED, SpeedControlHandler, SpeedControlSchema),
+    (GameEvent.GAME_JOIN, JoinGameHandler, JoinGameSchema),
 ]

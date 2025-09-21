@@ -36,14 +36,14 @@ export default function CTAButton({
 
   if (to) {
     return (
-      <Button 
-        component={RouterLink} 
-        to={to} 
-        variant={variant} 
-        size={size} 
-        color={color} 
-        onClick={onClick} 
-        sx={{...baseStyles}}>
+      <Button
+        component={RouterLink}
+        to={to}
+        variant={variant}
+        size={size}
+        color={color}
+        onClick={onClick}
+        sx={{ ...baseStyles }}>
         {label}
       </Button>
     );
@@ -51,27 +51,27 @@ export default function CTAButton({
 
   if (href) {
     return (
-      <Button 
-        component="a" 
-        href={href} 
-        target="_blank" 
+      <Button
+        component="a"
+        href={href}
+        target="_blank"
         rel="noopener"
         variant={variant}
         size={size}
         color={color}
         onClick={onClick}
-        sx={{...baseStyles}}>
+        sx={{ ...baseStyles }}>
         {label}
       </Button>
     );
   }
 
-  return <Button 
-            variant={variant}
-            size={size}
-            color={color}
-            onClick={onClick}
-            sx={{...baseStyles}}>
-            {label}
-          </Button>;
+  return <Button
+    variant={variant}
+    size={size}
+    color={color}
+    onClick={onClick}
+    sx={{ ...baseStyles }}>
+    {label}
+  </Button>;
 }

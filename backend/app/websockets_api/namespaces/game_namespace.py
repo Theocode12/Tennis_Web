@@ -2,16 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from pydantic import ValidationError
-from socketio import AsyncNamespace
-
-from app.shared.enums.client_events import ClientEvent
+from .base_namespace import BaseNamespace
 
 if TYPE_CHECKING:
     from app.core.context import AppContext
 
 
-class GameNamespace(AsyncNamespace):  # type: ignore[misc]
+class GameNamespace(BaseNamespace):
     """
     Handles all client interactions within the '/game' namespace.
 
@@ -20,19 +17,6 @@ class GameNamespace(AsyncNamespace):  # type: ignore[misc]
     """
 
     context: AppContext
-
-    def __init__(self, namespace: str, context: AppContext) -> None:
-        """
-        Initializes the GameNamespace.
-
-        Args:
-            namespace: The namespace identifier (e.g., '/game').
-            context: The application context containing shared resources.
-        """
-        super().__init__(namespace)
-        self.context = context
-        self.logger = context.logger
-        self.logger.info(f"GameNamespace initialized for '{namespace}' namespace.")
 
     async def on_connect(self, sid: str, environ: dict[str, Any]) -> None:
         """
@@ -90,71 +74,3 @@ class GameNamespace(AsyncNamespace):  # type: ignore[misc]
             self.logger.error(
                 f"Error during disconnect cleanup for SID {sid}: {e}", exc_info=True
             )
-
-    async def on_message(
-        self, sid: str, data: Any
-    ) -> None:  # should take in a variadic
-        """
-        Handles incoming 'message' events sent by the client.
-
-        Args:
-            sid: The session ID of the client sending the message.
-            data: The data sent by the client.
-        """
-        self.logger.debug(f"Received 'message' event from SID {sid}: {data}")
-
-        if not isinstance(data, dict):
-            error_msg = {"error": "Invalid message format, expected an object"}
-            await self.emit(ClientEvent.ERROR, error_msg, to=sid)
-            return
-
-        data["namespace"] = self.namespace
-        await self._handle_incoming_message(sid, data)
-
-    async def _handle_incoming_message(self, sid: str, data: dict[str, Any]) -> None:
-        """
-        Processes the incoming message and routes it to the appropriate handler.
-
-        Args:
-            sid: The session ID of the client sending the message.
-            data: The validated message data.
-        """
-        message_type = data.get("type")
-
-        if not message_type:
-            error_msg = {"error": "Message type missing"}
-            await self.emit(ClientEvent.ERROR, error_msg, to=sid)
-            return
-
-        router = self.context.router
-        route_definition = router.get_definition(message_type)
-
-        if route_definition is None:
-            error_msg = {"error": "Unknown message type"}
-            await self.emit(ClientEvent.ERROR, error_msg, to=sid)
-            return
-
-        try:
-            schema_cls = route_definition.get("schema")
-            print(data)
-            validated_data = (
-                data if schema_cls is None else schema_cls(**data).model_dump()
-            )
-            print(validated_data)
-        except ValidationError:
-            error_msg = {"error": "Invalid data schema"}
-            await self.emit(ClientEvent.ERROR.value, error_msg, to=sid)
-            return
-
-        try:
-            handler = route_definition["handler"](self.context)
-            await handler.handle(sid, validated_data)
-        except Exception as e:
-            self.logger.error(
-                f"Error processing '{message_type}' for SID {sid}: {e}",
-                exc_info=True,
-            )
-            error_msg = {
-                "error": "An internal error occurred while processing the message"
-            }
-            await self.emit(ClientEvent.ERROR, error_msg, to=sid)
