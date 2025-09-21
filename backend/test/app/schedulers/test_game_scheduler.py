@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app.scheduler.scheduler import GameScheduler, SchedulerCommands, SchedulerState
-from app.shared.enums.client_events import ClientEvent
+from app.shared.enums.game_event import GameEvent
 
 
 @pytest.fixture
@@ -237,7 +237,7 @@ def test_format_score_update_payload(
     )
 
     raw_score = {"home": 1, "away": 2}
-    expected = {"data": raw_score, "type": ClientEvent.GAME_SCORE_UPDATE}
+    expected = {"data": raw_score, "type": GameEvent.GAME_SCORE_UPDATE}
 
     result = scheduler._format_score_update_payload(raw_score)
     assert result == expected
@@ -284,3 +284,50 @@ async def test_run_loop_publishes_scores_and_cleans_up(
     assert len(publish_calls) >= 1
 
     dummy_feeder.cleanup.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_run_publishes_sentinel_on_completion(
+    valid_config: ConfigParser,
+    dummy_logger: Logger,
+) -> None:
+    """
+    Verify that the GameScheduler publishes a sentinel message when the
+    score feeder is exhausted.
+    """
+    # 1. Setup a feeder that will exhaust quickly
+    feeder = MagicMock()
+    feeder.get_game_details = AsyncMock(return_value={"teams": ["A", "B"]})
+
+    async def finite_score_generator() -> AsyncGenerator[Any, Any]:
+        yield {"score": 1}
+        yield {"score": 2}
+
+    feeder.get_next_score = finite_score_generator
+    feeder.cleanup = AsyncMock()
+
+    # 2. Setup a mock broker to spy on publish calls
+    broker = AsyncMock()
+
+    async def empty_generator() -> AsyncGenerator[Any, None]:
+        if False:
+            yield
+
+    broker.subscribe.return_value = empty_generator()
+
+    # 3. Create and run the scheduler
+    scheduler = GameScheduler(
+        "test_game", broker, feeder, config=valid_config, logger=dummy_logger
+    )
+    scheduler.speed = 0  # Run as fast as possible
+    await scheduler.start()  # Set state to ONGOING
+
+    await scheduler.run()
+
+    # 4. Assert the sentinel was the last message published
+    broker.publish.assert_called()
+    last_call = broker.publish.call_args_list[-1]
+    _, channel, message = last_call.args
+
+    assert channel == "scores_update"
+    assert message == {"__sentinel__": True, "type": "end"}

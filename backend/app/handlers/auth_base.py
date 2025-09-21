@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.shared.enums.client_events import ClientEvent
+from app.shared.enums.game_event import GameEvent
 
 from .base import BaseHandler
 
@@ -12,7 +12,7 @@ class AuthenticatedHandler(BaseHandler):
         token: str = data.get("token", "")
         if not self.context.auth.validate(token):
             await self.context.sio.emit(
-                ClientEvent.ERROR, {"error": "Unauthorized"}, to=sid
+                GameEvent.ERROR, {"error": "Unauthorized"}, to=sid
             )
             return
         await self.handle_authenticated(sid, data)
