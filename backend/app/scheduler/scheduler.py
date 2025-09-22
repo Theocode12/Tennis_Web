@@ -10,8 +10,7 @@ from typing import Any
 
 from app.broker.message_broker import MessageBroker
 from app.shared.enums.broker_channels import BrokerChannels
-from app.shared.enums.client_events import ClientEvent
-from app.shared.enums.control_types import Controls
+from app.shared.enums.game_event import GameEvent
 from utils.load_config import load_config
 from utils.logger import get_logger
 
@@ -28,10 +27,10 @@ class SchedulerState(StrEnum):
 class SchedulerCommands(StrEnum):
     """Enum representing valid scheduler control commands."""
 
-    START = Controls.GAME_CONTROL_START
-    PAUSE = Controls.GAME_CONTROL_PAUSE
-    RESUME = Controls.GAME_CONTROL_RESUME
-    ADJUST_SPEED = Controls.GAME_CONTROL_SPEED
+    START = GameEvent.GAME_CONTROL_START
+    PAUSE = GameEvent.GAME_CONTROL_PAUSE
+    RESUME = GameEvent.GAME_CONTROL_RESUME
+    ADJUST_SPEED = GameEvent.GAME_CONTROL_SPEED
 
 
 class BaseScheduler(ABC):
@@ -158,7 +157,7 @@ class GameScheduler(BaseScheduler):
         """
         return {
             "data": score,
-            "type": ClientEvent.GAME_SCORE_UPDATE,
+            "type": GameEvent.GAME_SCORE_UPDATE,
         }
 
     def _start_pause_timer(self) -> None:
@@ -241,6 +240,12 @@ class GameScheduler(BaseScheduler):
                 await control_task
             except CancelledError:
                 self.logger.debug("Control task cancelled cleanly.")
+
+            # Publish a sentinel message to signal the end of the stream.
+            # This allows broker relays and other subscribers to clean up.
+            await self.publish(
+                BrokerChannels.SCORES_UPDATE, {"__sentinel__": True, "type": "end"}
+            )
 
             await self.feeder.cleanup()
             self.logger.info(f"Scheduler finished for game_id={self.game_id}.")

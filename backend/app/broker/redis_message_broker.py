@@ -84,17 +84,18 @@ class RedisMessageBroker(MessageBroker):
             RedisConnectionError: If Redis is not connected.
         """
         full_channel = self._get_full_channel(game_id, channel)
-        if self.redis is not None:
-            try:
-                num_clients = await self.redis.publish(
-                    full_channel, json.dumps(message)
-                )
-                return cast(int, num_clients)
-            except Exception as e:
-                self.logger.error(f"Broker Failed to publish message: {e}")
-                raise
-        else:
-            raise RedisConnectionError("Cannot publish: Redis is not connected.")
+        if self.redis is None:
+            await self.connect()
+
+        if self.redis is None:
+            raise RedisConnectionError("Redis is not connected.")
+
+        try:
+            num_clients = await self.redis.publish(full_channel, json.dumps(message))
+            return cast(int, num_clients)
+        except Exception as e:
+            self.logger.error(f"Broker Failed to publish message: {e}")
+            raise
 
     async def subscribe(
         self, game_id: str, channels: BrokerChannels | list[BrokerChannels]
@@ -116,7 +117,7 @@ class RedisMessageBroker(MessageBroker):
             RedisConnectionError: If Redis is not connected.
         """
         if self.redis is None:
-            raise RedisConnectionError("Cannot subscribe: Redis is not connected.")
+            await self.connect()
         channels_list: tuple[BrokerChannels, ...]
         if isinstance(channels, BrokerChannels):
             channels_list = (channels,)
