@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import configparser
 import logging
 from typing import TYPE_CHECKING
@@ -9,6 +8,7 @@ from socketio import AsyncServer, Manager  # type: ignore
 
 from app.broker.message_broker import MessageBroker
 from app.core.ws_auth import AuthService
+from app.handlers.broker_relay import BrokerRelay
 from app.scheduler.manager import SchedulerManager
 from utils.load_config import load_config
 from utils.logger import get_logger
@@ -22,11 +22,9 @@ class AppContext:
     broker: MessageBroker
     auth: AuthService
     scheduler_manager: SchedulerManager
+    broker_relay: BrokerRelay
     router: Router
     client_manager: Manager
-    broker_listener_tasks: dict[
-        str, asyncio.Task[None]
-    ]  # Mapping of game_id to asyncio.Task for broker listener tasks
 
     def __init__(
         self,
@@ -46,4 +44,4 @@ class AppContext:
         self.logger = logger or get_logger()
         self.scheduler_manager = scheduler_manager
         self.client_manager = self.sio.manager
-        self.broker_listener_tasks = {}
+        self.broker_relay = BrokerRelay(self)

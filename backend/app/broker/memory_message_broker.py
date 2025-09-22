@@ -122,8 +122,8 @@ class InMemoryMessageBroker(MessageBroker):
                         yield message
                     except asyncio.TimeoutError:
                         continue
-                    except asyncio.CancelledError:
-                        raise
+                    except asyncio.CancelledError as e:
+                        raise e
             finally:
                 self._unsubscribe(game_id, channels_list, queue)
 
