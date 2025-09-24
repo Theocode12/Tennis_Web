@@ -12,7 +12,8 @@ The **Tennis Simulation & Streaming System** is a real-time tennis game simulati
 - 🏟 **Spectator Mode**: Watch live AI vs. AI and player matches in real-time.  
 - 🔄 **Live Streaming**: Game results are streamed gradually for a realistic experience.  
 - 🎥 **Video & Audio Communication**: Built-in video calls for multiplayer matches.  
-- ⚙ **Highly Configurable Rules**: Customize game, set, and match conditions to fit your style.  
+- ⚙ **Highly Configurable Rules**: Customize game, set, and match conditions to fit your style.
+- 🤖 AI Commentary: Real-time AI-generated insights and play-by-play analysis to enhance your match experience.
 
 ---
 
