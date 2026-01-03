@@ -113,6 +113,10 @@ class BaseGameFeeder(ABC):
         self._buffer.clear()
 
 
+# TODO: To retrive game data from redis, a namespace before gameID should be used.
+# Right now to retrive data we do client.get(gameID) instead we should
+# client.get({namespace}:gameId). this namespace should
+# be gotten from config
 class RedisGameFeeder(BaseGameFeeder):
     """
     Game data feeder that reads game information and scores from Redis.

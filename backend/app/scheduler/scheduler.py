@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import configparser
 import logging
+import time
 from abc import ABC, abstractmethod
 from asyncio import CancelledError, Event, Task, create_task, sleep
 from collections.abc import AsyncGenerator, Awaitable, Callable
@@ -15,6 +16,7 @@ from utils.load_config import load_config
 from utils.logger import get_logger
 
 from .game_feeder import BaseGameFeeder
+from .state_publisher import SchedulerStatePublisher
 
 
 class SchedulerState(StrEnum):
@@ -94,12 +96,17 @@ class GameScheduler(BaseScheduler):
     speed: float
     controls: dict[str, Callable[..., Awaitable[None]]]
     state: SchedulerState
+    latest_score: dict[str, Any] | None
+    created_at: float
+    state_publisher: SchedulerStatePublisher | None
 
     def __init__(
         self,
         game_id: str,
         broker: MessageBroker,
         feeder: BaseGameFeeder,
+        *,
+        state_publisher: SchedulerStatePublisher | None = None,
         config: configparser.ConfigParser | None = None,
         logger: logging.Logger | None = None,
     ) -> None:
@@ -119,6 +126,7 @@ class GameScheduler(BaseScheduler):
         self.config = config or load_config()
         self.logger = logger or get_logger(self.__class__.__name__)
         self.feeder = feeder
+        self.state_publisher = state_publisher
         self.pause_event = Event()
         self.speed = self.config.getfloat("app", "defaultGameSpeed", fallback=1.0)
         self.score_update_sleep_task: Task[None] | None = None
@@ -127,6 +135,8 @@ class GameScheduler(BaseScheduler):
             "app", "pauseTimeoutSecs", fallback=60.0
         )
         self._pause_timer: Task[None] | None = None
+        self.created_at = time.time()
+        self.latest_score = None
 
         self.controls = {
             SchedulerCommands.START: self.start,
@@ -142,8 +152,32 @@ class GameScheduler(BaseScheduler):
         Returns:
             dict[str, Any]: Combined metadata payload.
         """
+
         game_details = await self.feeder.get_game_details()
-        return {"game_state": self.state, **game_details}
+        return {
+            "game_state": self.state,
+            "latest_score": self.latest_score,
+            "created_at": self.created_at,
+            **game_details,
+        }
+
+    async def _publish_snapshot(self) -> None:
+        """
+        Publish the current scheduler state snapshot if enabled.
+
+        This is best-effort and must never interrupt the game loop.
+        """
+        if not self.state_publisher:
+            return
+
+        try:
+            self.logger.debug("Publishing scheduler state snapshot")
+            await self.state_publisher.publish_state(
+                game_id=self.game_id,
+                state=await self.get_metadata(),
+            )
+        except Exception:
+            self.logger.exception("Failed to publish scheduler state snapshot")
 
     def _format_score_update_payload(self, score: dict[str, Any]) -> dict[str, Any]:
         """
@@ -206,21 +240,33 @@ class GameScheduler(BaseScheduler):
         Main game loop that fetches scores from the feeder and publishes them.
 
         Handles control messages asynchronously and respects pause/resume/speed
-         state.
+        state.
         """
         control_task = create_task(self.subscribe_to_controls())
+
+        # Publish initial snapshot (NOT_STARTED or initial metadata)
+        await self._publish_snapshot()
 
         try:
             score_iterator: AsyncGenerator[Any, None] = self.feeder.get_next_score()
 
             async for score in score_iterator:
+                # Respect pause
                 await self.pause_event.wait()
 
+                # Advance state
+                self.latest_score = score
+
+                # Publish to live stream
                 await self.publish(
                     BrokerChannels.SCORES_UPDATE,
                     self._format_score_update_payload(score),
                 )
 
+                # Update snapshot for discovery
+                await self._publish_snapshot()
+
+                # Controlled pacing
                 try:
                     self.score_update_sleep_task = create_task(sleep(self.speed))
                     await self.score_update_sleep_task
@@ -234,20 +280,32 @@ class GameScheduler(BaseScheduler):
         except Exception:
             self.logger.exception(f"Run loop error for game_id={self.game_id}")
             raise
+
         finally:
+            # Stop control listener
             control_task.cancel()
             try:
                 await control_task
             except CancelledError:
                 self.logger.debug("Control task cancelled cleanly.")
 
-            # Publish a sentinel message to signal the end of the stream.
-            # This allows broker relays and other subscribers to clean up.
+            # Signal end of stream
             await self.publish(
-                BrokerChannels.SCORES_UPDATE, {"__sentinel__": True, "type": "end"}
+                BrokerChannels.SCORES_UPDATE,
+                {"__sentinel__": True, "type": "end"},
             )
 
+            # Cleanup resources
             await self.feeder.cleanup()
+
+            if self.state_publisher:
+                try:
+                    await self.state_publisher.cleanup(game_id=self.game_id)
+                except Exception:
+                    self.logger.exception(
+                        "Failed to cleanup scheduler state snapshot"
+                    )
+
             self.logger.info(f"Scheduler finished for game_id={self.game_id}.")
 
     async def start(self) -> None:

@@ -9,8 +9,13 @@ from app.broker.message_broker import MessageBroker
 from app.scheduler.game_feeder import BaseGameFeeder
 from app.scheduler.game_feeder_factory import create_game_feeder
 from app.scheduler.scheduler import BaseScheduler, GameScheduler
+from db.redis_storage import RedisStorageSingleton as RedisStorage
 from utils.load_config import load_config
 from utils.logger import get_logger
+
+from .game_state_key_builder import GameStateKeyBuilder
+from .redis_state_publisher import RedisSchedulerStatePublisher
+from .state_publisher import SchedulerStatePublisher
 
 
 class SchedulerManager:
@@ -69,6 +74,27 @@ class SchedulerManager:
             ValueError: If the feeder type is unsupported.
         """
         return create_game_feeder(game_id, self.config, self.logger)
+
+    async def _create_state_publisher(self) -> SchedulerStatePublisher | None:
+        if not self.config.getboolean("liveGameRegistry", "enabled", fallback=False):
+            return None
+
+        prefix = self.config.get(
+            "liveGameRegistry",
+            "redisKeyPrefix",
+            fallback="live:game",
+        )
+
+        ttl = self.config.getint("liveGameRegistry", "ttlSeconds", fallback=30)
+
+        key_builder = GameStateKeyBuilder(prefix)
+
+        return RedisSchedulerStatePublisher(
+            storage=RedisStorage(self.config, self.logger),
+            key_builder=key_builder,
+            ttl_seconds=ttl,
+            logger=self.logger,
+        )
 
     def get_scheduler(self, game_id: str) -> BaseScheduler | None:
         """
@@ -129,10 +155,15 @@ class SchedulerManager:
                 self.logger.info(f"Creating new scheduler for game {game_id}...")
 
                 feeder = self._create_feeder(game_id)
+                state_publisher = await self._create_state_publisher()
 
                 scheduler = GameScheduler(
-                    game_id=game_id, broker=self._broker, feeder=feeder
+                    game_id=game_id,
+                    broker=self._broker,
+                    feeder=feeder,
+                    state_publisher=state_publisher,
                 )
+
                 task = asyncio.create_task(
                     scheduler.run(), name=f"scheduler_run_{game_id}"
                 )

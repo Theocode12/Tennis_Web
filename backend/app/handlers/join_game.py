@@ -63,8 +63,9 @@ class JoinGameHandler(BaseHandler):
             )
             return
 
-        scheduler = context.scheduler_manager.get_scheduler(game_id)
-        if not scheduler:
+        # scheduler = context.scheduler_manager.get_scheduler(game_id)
+        # if not scheduler:
+        if not context.scheduler_manager.has_scheduler(game_id):
             logger.warning(
                 f"JoinGameHandler: Game '{game_id}' not found or inactive."
             )
@@ -109,7 +110,9 @@ class JoinGameHandler(BaseHandler):
                 f"JoinGameHandler: Client {sid} entered Socket.IO room {game_id}"
             )
 
-            response_data = await scheduler.get_metadata()
+            response_data = await context.scheduler_manager.get_game_data(game_id)
+            if not response_data:
+                raise RuntimeError(f"Failed to retrieve metadata for game '{game_id}'")
 
             await context.sio.emit(
                 GameEvent.GAME_JOIN,
