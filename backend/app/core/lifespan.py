@@ -39,13 +39,6 @@ async def realtime_lifespan(app: FastAPI):
 
     assert sio.manager.server is sio
 
-    # sio = socketio.AsyncServer(
-    #     client_manager=client_manager,
-    #     async_mode="asgi",
-    #     cors_allowed_origins="*",
-    #     logger=True,
-    # )
-
     sio_context = bulid_socketio_server_context(
         sio=sio,
         config=config,
@@ -55,12 +48,6 @@ async def realtime_lifespan(app: FastAPI):
     await put_and_start_game_in_scheduler_manager(sio_context)
 
     app.state.sio_context = sio_context
-    # socket_app = socketio.ASGIApp(sio)
-
-    # Store in FastAPI state
-    # app.state.sio = sio
-    # app.state.sio_context = sio_context
-    # app.state.socket_app = socket_app
 
     try:
         yield

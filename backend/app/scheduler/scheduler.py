@@ -137,6 +137,9 @@ class GameScheduler(BaseScheduler):
         self._pause_timer: Task[None] | None = None
         self.created_at = time.time()
         self.latest_score = None
+        # Flag to distinguish between internal task cancellation (pause/speed change)
+        # and external cancellation (shutdown).
+        self._sleep_interrupted_intentionally = False
 
         self.controls = {
             SchedulerCommands.START: self.start,
@@ -232,6 +235,7 @@ class GameScheduler(BaseScheduler):
         self.state = SchedulerState.AUTOPLAY
         self.pause_event.set()  # Unblock the pause wait
         if self.score_update_sleep_task and not self.score_update_sleep_task.done():
+            self._sleep_interrupted_intentionally = True
             self.score_update_sleep_task.cancel()
         self._cancel_pause_timer()
 
@@ -271,9 +275,14 @@ class GameScheduler(BaseScheduler):
                     self.score_update_sleep_task = create_task(sleep(self.speed))
                     await self.score_update_sleep_task
                 except CancelledError:
-                    self.logger.debug(
-                        "Sleep interrupted during pause or speed change."
-                    )
+                    if self._sleep_interrupted_intentionally:
+                        self.logger.debug(
+                            "Sleep interrupted locally (pause/speed change)."
+                        )
+                        self._sleep_interrupted_intentionally = False
+                    else:
+                        self.logger.info("Sleep cancelled externally; shutting down.")
+                        raise
                 finally:
                     self.score_update_sleep_task = None
 
@@ -335,6 +344,7 @@ class GameScheduler(BaseScheduler):
         self._start_pause_timer()
 
         if self.score_update_sleep_task and not self.score_update_sleep_task.done():
+            self._sleep_interrupted_intentionally = True
             self.score_update_sleep_task.cancel()
 
     async def resume(self) -> None:
@@ -374,6 +384,7 @@ class GameScheduler(BaseScheduler):
 
         if self.score_update_sleep_task and not self.score_update_sleep_task.done():
             self.logger.debug("Cancelling score update sleep task if available")
+            self._sleep_interrupted_intentionally = True
             self.score_update_sleep_task.cancel()
 
     async def subscribe_to_controls(self) -> None:
