@@ -179,6 +179,7 @@ class RedisGameFeeder(BaseGameFeeder):
                 self._game_details = {
                     "game_id": data.get("game_id"),
                     "teams": data.get("teams"),
+                    "match_context": data.get("match_context"),
                 }
                 self.logger.debug(f"Game details loaded for game_id={self.game_id}")
 
@@ -323,6 +324,7 @@ class FileGameFeeder(BaseGameFeeder):
                     self._game_details = {
                         "game_id": data["game_id"],
                         "teams": data["teams"],
+                        "match_context": data["match_context"],
                     }
 
                     self.logger.debug(
