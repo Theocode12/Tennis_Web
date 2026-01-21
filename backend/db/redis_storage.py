@@ -90,7 +90,6 @@ class RedisStorageBase:
             self.logger.error(error_msg)
             raise RuntimeError(error_msg)
 
-        self.logger.debug("Returning Redis client instance from pool.")
         return redis.Redis(connection_pool=self.pool)
 
     async def close(self) -> None:

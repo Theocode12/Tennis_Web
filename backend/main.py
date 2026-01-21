@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import socketio
-
-# from configparser import ConfigParser
 from fastapi import FastAPI
 
 from app.api.v1.router import router as v1_router
+from app.core.bootstrap import lifespan
 from app.core.cors import setup_cors
-from app.core.lifespan import lifespan
 
 # from gameengine import GameCreationData
 # from app.shared.lib.game_engine_config import CONFIG
