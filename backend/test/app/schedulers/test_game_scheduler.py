@@ -53,11 +53,11 @@ async def test_start_sets_state_and_unblocks_pause_event(
     dummy_broker: MagicMock,
 ) -> None:
     scheduler = GameScheduler(
-        "test_game",
-        dummy_broker,
-        dummy_feeder,
-        valid_config,
-        dummy_logger,
+        game_id="test_game",
+        broker=dummy_broker,
+        feeder=dummy_feeder,
+        config=valid_config,
+        logger=dummy_logger,
     )
     await scheduler.start()
     assert scheduler.state == SchedulerState.ONGOING
@@ -72,11 +72,11 @@ async def test_pause_sets_state_and_cancels_sleep(
     dummy_broker: MagicMock,
 ) -> None:
     scheduler = GameScheduler(
-        "test_game",
-        dummy_broker,
-        dummy_feeder,
-        valid_config,
-        dummy_logger,
+        game_id="test_game",
+        broker=dummy_broker,
+        feeder=dummy_feeder,
+        config=valid_config,
+        logger=dummy_logger,
     )
 
     await scheduler.start()
@@ -96,9 +96,9 @@ async def test_resume_sets_state_and_cancels_pause_timer(
     dummy_broker: MagicMock,
 ) -> None:
     scheduler = GameScheduler(
-        "test_game",
-        dummy_broker,
-        dummy_feeder,
+        game_id="test_game",
+        broker=dummy_broker,
+        feeder=dummy_feeder,
         config=valid_config,
         logger=dummy_logger,
     )
@@ -120,9 +120,9 @@ async def test_adjust_speed_changes_speed_and_cancels_sleep(
     dummy_broker: MagicMock,
 ) -> None:
     scheduler = GameScheduler(
-        "test_game",
-        dummy_broker,
-        dummy_feeder,
+        game_id="test_game",
+        broker=dummy_broker,
+        feeder=dummy_feeder,
         config=valid_config,
         logger=dummy_logger,
     )
@@ -142,9 +142,9 @@ async def test_adjust_speed_ignores_invalid_input(
     dummy_broker: MagicMock,
 ) -> None:
     scheduler = GameScheduler(
-        "test_game",
-        dummy_broker,
-        dummy_feeder,
+        game_id="test_game",
+        broker=dummy_broker,
+        feeder=dummy_feeder,
         config=valid_config,
         logger=dummy_logger,
     )
@@ -161,9 +161,9 @@ async def test_get_metadata_returns_data_combined_from_feeder_and_scheduler(
     dummy_broker: MagicMock,
 ) -> None:
     scheduler = GameScheduler(
-        "test_game",
-        dummy_broker,
-        dummy_feeder,
+        game_id="test_game",
+        broker=dummy_broker,
+        feeder=dummy_feeder,
         config=valid_config,
         logger=dummy_logger,
     )
@@ -182,7 +182,11 @@ async def test_control_subscription_routes_commands(
     dummy_broker: MagicMock,
 ) -> None:
     scheduler = GameScheduler(
-        "game1", dummy_broker, dummy_feeder, config=valid_config, logger=dummy_logger
+        game_id="game1",
+        broker=dummy_broker,
+        feeder=dummy_feeder,
+        config=valid_config,
+        logger=dummy_logger,
     )
 
     task = asyncio.create_task(scheduler.subscribe_to_controls())
@@ -206,9 +210,9 @@ async def test_resume_due_to_timeout_resumes_scheduler(
     dummy_broker: MagicMock,
 ) -> None:
     scheduler = GameScheduler(
-        "test_game",
-        dummy_broker,
-        dummy_feeder,
+        game_id="test_game",
+        broker=dummy_broker,
+        feeder=dummy_feeder,
         config=valid_config,
         logger=dummy_logger,
     )
@@ -229,9 +233,9 @@ def test_format_score_update_payload(
     dummy_broker: MagicMock,
 ) -> None:
     scheduler = GameScheduler(
-        "test_game",
-        dummy_broker,
-        dummy_feeder,
+        game_id="test_game",
+        broker=dummy_broker,
+        feeder=dummy_feeder,
         config=valid_config,
         logger=dummy_logger,
     )

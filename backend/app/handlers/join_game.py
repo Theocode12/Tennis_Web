@@ -85,7 +85,7 @@ class JoinGameHandler(BaseHandler):
         )
         try:
             channels_to_listen = [
-                BrokerChannels(c.strip())
+                BrokerChannels(c.strip().lower())
                 for c in channels_str.split(",")
                 if c.strip()
             ]
@@ -112,7 +112,9 @@ class JoinGameHandler(BaseHandler):
 
             response_data = await context.scheduler_manager.get_game_data(game_id)
             if not response_data:
-                raise RuntimeError(f"Failed to retrieve metadata for game '{game_id}'")
+                raise RuntimeError(
+                    f"Failed to retrieve metadata for game '{game_id}'"
+                )
 
             await context.sio.emit(
                 GameEvent.GAME_JOIN,

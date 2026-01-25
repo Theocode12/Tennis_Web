@@ -24,7 +24,7 @@ def mock_context() -> MagicMock:
 @pytest.fixture
 def broker_relay(mock_context: MagicMock) -> BrokerRelay:
     """Provides a BrokerRelay instance with a mocked context."""
-    return BrokerRelay(mock_context)
+    return BrokerRelay(mock_context.sio, mock_context.broker, mock_context.logger)
 
 
 @pytest.mark.asyncio
@@ -159,12 +159,10 @@ async def test_done_callback_removes_task(
 
 
 @pytest.mark.asyncio
-async def test_stop_all_cancels_all_tasks(
+async def test_shutdown_cancels_all_tasks(
     broker_relay: BrokerRelay, mock_context: MagicMock
 ) -> None:
-    """Verify that stop_all cancels all running listener tasks."""
-    # Mock the broker to prevent listeners from exiting
-    mock_context.broker.subscribe.return_value = asyncio.Event().wait()
+    """Verify that shutdown cancels all running listener tasks."""
 
     # Start two different listeners
     await broker_relay.start_listener(
@@ -177,7 +175,7 @@ async def test_stop_all_cancels_all_tasks(
     assert len(broker_relay._tasks) == 2
     tasks = list(broker_relay._tasks.values())
 
-    await broker_relay.stop_all()
+    await broker_relay.shutdown()
 
     assert len(broker_relay._tasks) == 0
     assert all(t.cancelled() for t in tasks)

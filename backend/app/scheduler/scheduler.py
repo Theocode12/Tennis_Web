@@ -174,7 +174,7 @@ class GameScheduler(BaseScheduler):
             return
 
         try:
-            self.logger.debug("Publishing scheduler state snapshot")
+            # self.logger.debug("Publishing scheduler state snapshot")
             await self.state_publisher.publish_state(
                 game_id=self.game_id,
                 state=await self.get_metadata(),
@@ -281,7 +281,9 @@ class GameScheduler(BaseScheduler):
                         )
                         self._sleep_interrupted_intentionally = False
                     else:
-                        self.logger.info("Sleep cancelled externally; shutting down.")
+                        self.logger.info(
+                            "Sleep cancelled externally; shutting down."
+                        )
                         raise
                 finally:
                     self.score_update_sleep_task = None

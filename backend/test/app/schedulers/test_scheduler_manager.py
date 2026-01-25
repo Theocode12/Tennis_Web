@@ -18,11 +18,18 @@ class DummyFeeder:
 
 
 class DummyScheduler:
-    def __init__(self, game_id: str, broker: MagicMock, feeder: DummyFeeder) -> None:
+    def __init__(
+        self,
+        game_id: str,
+        broker: MagicMock,
+        feeder: DummyFeeder,
+        state_publisher: MagicMock,
+    ) -> None:
         self.game_id = game_id
         self.broker = broker
         self.feeder = feeder
         self._stop_event = asyncio.Event()
+        self.state_publisher = state_publisher
 
     async def run(self) -> None:
         await self._stop_event.wait()

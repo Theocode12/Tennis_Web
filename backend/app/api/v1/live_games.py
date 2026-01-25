@@ -16,18 +16,11 @@ async def get_live_games(
     config: Annotated[ConfigParser, Depends(get_app_config)],
     limit: int = 5,
 ):
-    key_pattern = config.get(
-        "liveGameRegistry", "redisKeyPattern", fallback="live:game:*"
-    )
+    key_pattern = config.get("liveGameRegistry", "redisKeyPattern", fallback="live:game:*")
 
     scan_batch_size = config.getint("liveGameRegistry", "scanBatchSize", fallback=20)
 
-    visible_states = {
-        s.strip()
-        for s in config.get(
-            "liveGameRegistry", "visibleStates", fallback="ongoing"
-        ).split(",")
-    }
+    visible_states = {s.strip() for s in config.get("liveGameRegistry", "visibleStates", fallback="ongoing").split(",")}
 
     games = await fetch_live_games(
         redis_client,

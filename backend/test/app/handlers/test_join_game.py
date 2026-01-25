@@ -17,12 +17,13 @@ def mock_context() -> MagicMock:
     context = MagicMock()
     context.logger = MagicMock()
     context.scheduler_manager = MagicMock()
+    context.scheduler_manager.get_game_data = AsyncMock()
     context.sio = AsyncMock()
     context.broker_relay = AsyncMock()
 
     config = ConfigParser()
     config.add_section("broker")
-    config.set("broker", "relay_channels", "SCORES_UPDATE,CONTROLS")
+    config.set("broker", "relay_channels", "scores_update,controls")
     context.config = config
 
     return context
@@ -50,7 +51,7 @@ async def test_handle_missing_game_id(
         to=sid,
         namespace="/game",
     )
-    mock_context.scheduler_manager.get_scheduler.assert_not_called()
+    mock_context.scheduler_manager.has_scheduler.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -61,11 +62,11 @@ async def test_handle_game_not_found(
     sid = "test_sid"
     game_id = "non_existent_game"
     data = {"game_id": game_id, "namespace": "/game"}
-    mock_context.scheduler_manager.get_scheduler.return_value = None
+    mock_context.scheduler_manager.has_scheduler.return_value = False
 
     await join_game_handler.handle(sid, data)
 
-    mock_context.scheduler_manager.get_scheduler.assert_called_once_with(game_id)
+    mock_context.scheduler_manager.has_scheduler.assert_called_once_with(game_id)
     mock_context.sio.emit.assert_awaited_once_with(
         GameEvent.ERROR.value,
         {"error": f"Game '{game_id}' is not currently active or does not exist."},
@@ -83,9 +84,10 @@ async def test_handle_success(
     game_id = "active_game"
     data = {"game_id": game_id, "namespace": "/game"}
 
-    mock_scheduler = AsyncMock()
-    mock_scheduler.get_metadata.return_value = {"game_state": "ONGOING"}
-    mock_context.scheduler_manager.get_scheduler.return_value = mock_scheduler
+    mock_context.scheduler_manager.has_scheduler.return_value = True
+    mock_context.scheduler_manager.get_game_data.return_value = {
+        "game_state": "ONGOING"
+    }
 
     await join_game_handler.handle(sid, data)
 
@@ -101,7 +103,7 @@ async def test_handle_success(
     )
 
     # Verify response was sent
-    mock_scheduler.get_metadata.assert_awaited_once()
+    mock_context.scheduler_manager.get_game_data.assert_awaited_once_with(game_id)
     mock_context.sio.emit.assert_awaited_once_with(
         GameEvent.GAME_JOIN,
         {
@@ -122,11 +124,12 @@ async def test_handle_invalid_config_channels(
     game_id = "active_game"
     data = {"game_id": game_id, "namespace": "/game"}
 
-    mock_scheduler = AsyncMock()
-    mock_scheduler.get_metadata.return_value = {"game_state": "ONGOING"}
-    mock_context.scheduler_manager.get_scheduler.return_value = mock_scheduler
+    mock_context.scheduler_manager.has_scheduler.return_value = True
+    mock_context.scheduler_manager.get_game_data.return_value = {
+        "game_state": "ONGOING"
+    }
     mock_context.config.set(
-        "broker", "relay_channels", "SCORES_UPDATE,INVALID_CHANNEL"
+        "broker", "relay_channels", "scores_update,INVALID_CHANNEL"
     )
 
     await join_game_handler.handle(sid, data)

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from socketio import AsyncNamespace
 
-from app.exceptions.message_error import MessageError
 from app.shared.enums.game_event import GameEvent
 
 from .message_dispacter import MessageDispatcher
@@ -21,23 +20,12 @@ class BaseNamespace(AsyncNamespace):  # type: ignore[misc]
         self.logger = context.logger
         self.logger.info(f"GameNamespace initialized for '{namespace}' namespace.")
 
-    async def on_message(self, sid: str, data: Any) -> None:
-        self.logger.debug(
-            f"Received 'message' event on {self.namespace} from SID {sid}: {data}"
+    async def emit_error(self, sid: str, message: str) -> None:
+        """
+        Emit a standardized error event to a single client.
+        """
+        await self.emit(
+            GameEvent.ERROR.value,
+            {"error": message},
+            to=sid,
         )
-        try:
-            if not isinstance(data, dict):
-                raise MessageError("Data must be of type dict.")
-            await self.dispatcher.dispatch(sid, data, self.namespace)
-        except MessageError as e:
-            self.logger.error(f"MessageError in {self.namespace} for SID {sid}: {e}")
-            await self.emit(GameEvent.ERROR.value, {"error": str(e)}, to=sid)
-        except Exception as e:
-            self.logger.exception(
-                f"Error processing message in {self.namespace} for SID {sid}: {e}"
-            )
-            await self.emit(
-                GameEvent.ERROR.value,
-                {"error": "Internal server error"},
-                to=sid,
-            )

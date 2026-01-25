@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from app.exceptions.message_error import MessageError
+
 from .base_namespace import BaseNamespace
 
 if TYPE_CHECKING:
@@ -55,22 +57,24 @@ class GameNamespace(BaseNamespace):
                 )
                 await self.leave_room(sid, room)
 
-                # Get the list of participants and check if the room is now empty
-                participants = list(
-                    self.context.client_manager.get_participants(
-                        self.namespace, room
-                    )
-                )
-
-                if not participants:
-                    self.logger.info(
-                        f"Room {room} in namespace {self.namespace} is empty, "
-                        "performing cleanup."
-                    )
-
-                    await self.close_room(room)
-
         except Exception as e:
             self.logger.error(
                 f"Error during disconnect cleanup for SID {sid}: {e}", exc_info=True
             )
+
+    async def on_game(self, sid: str, data: Any) -> None:
+        self.logger.debug(
+            f"Received 'message' event on {self.namespace} from SID {sid}: {data}"
+        )
+        try:
+            if not isinstance(data, dict):
+                raise MessageError("Data must be of type dict.")
+            await self.dispatcher.dispatch(sid, data, self.namespace)
+        except MessageError as e:
+            self.logger.error(f"MessageError in {self.namespace} for SID {sid}: {e}")
+            await self.emit_error(sid, str(e))
+        except Exception as e:
+            self.logger.exception(
+                f"Error processing message in {self.namespace} for SID {sid}: {e}"
+            )
+            await self.emit_error(sid, "Internal server error")

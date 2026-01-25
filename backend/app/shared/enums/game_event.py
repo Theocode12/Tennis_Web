@@ -24,3 +24,10 @@ class GameEvent(StrEnum):
 
     # Error
     ERROR = "game.error"
+
+    # Messages
+    MESSAGE_JOIN = "message.join"
+    MESSAGE_SEND = "message.send"
+
+    # Viewer Count
+    VIEWER_COUNT = "viewer.count"

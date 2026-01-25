@@ -10,6 +10,7 @@ from app.core.ws_auth import AuthService
 from app.handlers.broker_relay import BrokerRelay
 from app.scheduler.manager import SchedulerManager
 from app.websockets_api.namespaces.game_namespace import GameNamespace
+from app.websockets_api.namespaces.message_namespace import MessageNamespace
 from app.websockets_api.routes.router import Router
 
 
@@ -69,6 +70,9 @@ class SocketIOServerContext:
 
     def register(self) -> None:
         self.context.sio.register_namespace(GameNamespace("/game", self.context))
+        self.context.sio.register_namespace(
+            MessageNamespace("/messages", self.context)
+        )
 
     def get_scheduler_manager(self) -> SchedulerManager:
         return self.scheduler_manager

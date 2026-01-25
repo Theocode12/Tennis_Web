@@ -1,5 +1,4 @@
 import asyncio
-import uuid
 
 import redis.asyncio as redis
 from fastapi import FastAPI
@@ -11,7 +10,10 @@ from utils.logger import get_logger
 
 
 def make_consumer_name() -> str:
-    return f"fastapi-{uuid.uuid4().hex[:8]}"
+    import os
+    import socket
+
+    return f"{socket.gethostname()}-{os.getpid()}"
 
 
 async def game_command_consumer(app: FastAPI) -> None:
@@ -20,8 +22,8 @@ async def game_command_consumer(app: FastAPI) -> None:
     config = load_config()
     logger = get_logger()
 
-    STREAM_KEY = config["background"]["STREAM_KEY"]
-    CONSUMER_GROUP = config["background"]["CONSUMER_GROUP"]
+    STREAM_KEY = config["background"]["StreamKey"]
+    CONSUMER_GROUP = config["background"]["ConsumerGroup"]
 
     try:
         await redis_client.xgroup_create(
@@ -51,6 +53,12 @@ async def game_command_consumer(app: FastAPI) -> None:
             for _, messages in response:
                 for message_id, payload in messages:
                     try:
+                        logger.info(
+                            "Processing command %s from stream %s for payload %s",
+                            message_id,
+                            STREAM_KEY,
+                            payload,
+                        )
                         await handle_command(app, message_id, payload)
                         await redis_client.xack(
                             STREAM_KEY, CONSUMER_GROUP, message_id
@@ -61,3 +69,21 @@ async def game_command_consumer(app: FastAPI) -> None:
         except asyncio.CancelledError:
             logger.info("Redis consumer cancelled")
             break
+
+        except Exception as e:
+            logger.exception("Redis consumer error: %s", str(e))
+            break
+
+    try:
+        await redis_client.xgroup_delconsumer(
+            STREAM_KEY,
+            CONSUMER_GROUP,
+            consumer_name,
+        )
+        logger.info(
+            "Deleted Redis consumer '%s' from group '%s'",
+            consumer_name,
+            CONSUMER_GROUP,
+        )
+    except Exception:
+        logger.exception("Failed to delete Redis consumer")

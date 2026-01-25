@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import asyncio
+from configparser import ConfigParser
+from typing import Any
+
+from app.celery import app
 from gameengine import GameBuilder, GameRunner
 from utils.logger import get_logger
-from typing import Any
-from configparser import ConfigParser
-from app.celery import app
-import asyncio
 
 
 @app.task()  # type: ignore

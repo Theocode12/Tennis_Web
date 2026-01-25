@@ -23,6 +23,7 @@ TEST_GAME_DETAILS = {
         "team_1": {"name": "Team A", "players": [{"name": "Alice"}]},
         "team_2": {"name": "Team B", "players": [{"name": "Bob"}]},
     },
+    "match_context": None,
 }
 
 
