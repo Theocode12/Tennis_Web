@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import socketio
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import router as v1_router
 from app.core.bootstrap import lifespan
 from app.core.cors import setup_cors
-
-# from gameengine import GameCreationData
-# from app.shared.lib.game_engine_config import CONFIG
 
 sio = socketio.AsyncServer(
     async_mode="asgi",
@@ -18,6 +16,8 @@ sio = socketio.AsyncServer(
 socket_app = socketio.ASGIApp(sio)
 
 app = FastAPI(lifespan=lifespan)
+
+app.mount("/media", StaticFiles(directory="media"), name="media")
 
 setup_cors(app)
 app.state.sio = sio

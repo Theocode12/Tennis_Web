@@ -52,9 +52,7 @@ class JoinGameHandler(BaseHandler):
         game_id = data.get("game_id")
 
         if not game_id:
-            logger.warning(
-                f"JoinGameHandler: Missing game_id in client data from {sid}"
-            )
+            logger.warning(f"JoinGameHandler: Missing game_id in client data from {sid}")
             await context.sio.emit(
                 GameEvent.ERROR,
                 {"error": "Missing required 'game_id' field."},
@@ -66,33 +64,20 @@ class JoinGameHandler(BaseHandler):
         # scheduler = context.scheduler_manager.get_scheduler(game_id)
         # if not scheduler:
         if not context.scheduler_manager.has_scheduler(game_id):
-            logger.warning(
-                f"JoinGameHandler: Game '{game_id}' not found or inactive."
-            )
+            logger.warning(f"JoinGameHandler: Game '{game_id}' not found or inactive.")
             await context.sio.emit(
                 GameEvent.ERROR.value,
-                {
-                    "error": f"Game '{game_id}' is not currently active or "
-                    "does not exist."
-                },
+                {"error": f"Game '{game_id}' is not currently active or does not exist."},
                 to=sid,
                 namespace=namespace,
             )
             return
 
-        channels_str = context.config.get(
-            "broker", "relay_channels", fallback="SCORES_UPDATE,CONTROLS"
-        )
+        channels_str = context.config.get("broker", "relay_channels", fallback="SCORES_UPDATE,CONTROLS")
         try:
-            channels_to_listen = [
-                BrokerChannels(c.strip().lower())
-                for c in channels_str.split(",")
-                if c.strip()
-            ]
+            channels_to_listen = [BrokerChannels(c.strip().lower()) for c in channels_str.split(",") if c.strip()]
         except ValueError as e:
-            logger.error(
-                f"Invalid broker channel in config: {e}. Using default channels."
-            )
+            logger.error(f"Invalid broker channel in config: {e}. Using default channels.")
             channels_to_listen = [
                 BrokerChannels.SCORES_UPDATE,
                 BrokerChannels.CONTROLS,
@@ -100,21 +85,15 @@ class JoinGameHandler(BaseHandler):
 
         # The BrokerRelay ensures a listener is started
         # only once per game/channel set.
-        await context.broker_relay.start_listener(
-            game_id, channels_to_listen, namespace, _process_broker_message
-        )
+        await context.broker_relay.start_listener(game_id, channels_to_listen, namespace, _process_broker_message)
 
         try:
             await context.sio.enter_room(sid, game_id, namespace=namespace)
-            logger.info(
-                f"JoinGameHandler: Client {sid} entered Socket.IO room {game_id}"
-            )
+            logger.info(f"JoinGameHandler: Client {sid} entered Socket.IO room {game_id}")
 
             response_data = await context.scheduler_manager.get_game_data(game_id)
             if not response_data:
-                raise RuntimeError(
-                    f"Failed to retrieve metadata for game '{game_id}'"
-                )
+                raise RuntimeError(f"Failed to retrieve metadata for game '{game_id}'")
 
             await context.sio.emit(
                 GameEvent.GAME_JOIN,
@@ -124,8 +103,7 @@ class JoinGameHandler(BaseHandler):
             )
         except Exception as e:
             logger.error(
-                f"JoinGameHandler: Failed to add client {sid} to "
-                f"room {game_id}: {e}",
+                f"JoinGameHandler: Failed to add client {sid} to room {game_id}: {e}",
                 exc_info=True,
             )
             await context.sio.emit(

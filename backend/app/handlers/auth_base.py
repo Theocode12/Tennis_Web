@@ -11,9 +11,7 @@ class AuthenticatedHandler(BaseHandler):
     async def handle(self, sid: str, data: dict[str, Any]) -> None:
         token: str = data.get("token", "")
         if not self.context.auth.validate(token):
-            await self.context.sio.emit(
-                GameEvent.ERROR, {"error": "Unauthorized"}, to=sid
-            )
+            await self.context.sio.emit(GameEvent.ERROR, {"error": "Unauthorized"}, to=sid)
             return
         await self.handle_authenticated(sid, data)
 

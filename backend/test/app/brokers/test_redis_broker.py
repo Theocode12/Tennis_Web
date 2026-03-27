@@ -34,9 +34,7 @@ async def test_publish_and_subscribe(live_redis_broker: RedisMessageBroker) -> N
 
     async def listener() -> Any:
         # Start the subscription process
-        gen = await live_redis_broker.subscribe(
-            game_id, [BrokerChannels.SCORES_UPDATE]
-        )
+        gen = await live_redis_broker.subscribe(game_id, [BrokerChannels.SCORES_UPDATE])
         try:
             async for message in gen:
                 return message

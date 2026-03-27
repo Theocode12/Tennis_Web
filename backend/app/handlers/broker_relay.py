@@ -13,24 +13,18 @@ from app.shared.enums.broker_channels import BrokerChannels
 if TYPE_CHECKING:
     pass
 
-MessageProcessor = Callable[
-    [dict[str, Any]], Awaitable[tuple[str, dict[str, Any]] | None]
-]
+MessageProcessor = Callable[[dict[str, Any]], Awaitable[tuple[str, dict[str, Any]] | None]]
 
 
 class BrokerRelay:
-    def __init__(
-        self, sio: AsyncServer, broker: MessageBroker, logger: logging.Logger
-    ):
+    def __init__(self, sio: AsyncServer, broker: MessageBroker, logger: logging.Logger):
         self._sio = sio
         self._broker = broker
         self._logger = logger
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._lock = asyncio.Lock()
 
-    def _create_subscription_key(
-        self, game_id: str, channels: list[BrokerChannels]
-    ) -> str:
+    def _create_subscription_key(self, game_id: str, channels: list[BrokerChannels]) -> str:
         return f"{game_id}:{'+'.join(sorted(c.value for c in channels))}"
 
     async def start_listener(
@@ -77,20 +71,14 @@ class BrokerRelay:
                     continue
 
                 event_name, payload = result
-                await self._sio.emit(
-                    event_name, payload, room=game_id, namespace=namespace
-                )
+                await self._sio.emit(event_name, payload, room=game_id, namespace=namespace)
         except asyncio.CancelledError:
             self._logger.debug(f"Broker relay cancelled for {game_id}.")
             raise
         except Exception as e:
-            self._logger.error(
-                f"Error in broker relay ({game_id}, {channels}): {e}", exc_info=True
-            )
+            self._logger.error(f"Error in broker relay ({game_id}, {channels}): {e}", exc_info=True)
         finally:
-            self._logger.info(
-                f"Broker relay for game_id={game_id}, channels={channels} ended."
-            )
+            self._logger.info(f"Broker relay for game_id={game_id}, channels={channels} ended.")
 
     async def shutdown(self) -> None:
         """

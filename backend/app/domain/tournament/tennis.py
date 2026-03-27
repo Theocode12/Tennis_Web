@@ -42,6 +42,8 @@ class Tournament:
         self.all_players: list[str] = list(config["players"])
         self.active_players: list[str] = list(self.all_players)
 
+        self.player_metadata: dict[str, dict[str, Any]] = config.get("player_metadata", {})
+
         self.match_players: dict[str, tuple[str, str]] = {}
         self.completed_matches: deque[str] = deque()
 
@@ -72,14 +74,18 @@ class Tournament:
                 self.current_round.required_players,
                 len(self.active_players),
             )
-            raise ValueError(
-                f"Round {self.current_round.code} requires "
-                f"{self.current_round.required_players} players"
-            )
+            raise ValueError(f"Round {self.current_round.code} requires {self.current_round.required_players} players")
 
     # =========================
     # Match Construction
     # =========================
+
+    def _player_info(self, player_name: str) -> dict[str, Any]:
+        """Return a PlayerInfo-compatible dict for the given player name."""
+        meta = self.player_metadata.get(player_name)
+        if meta and "world_ranking" in meta:
+            return {"name": player_name, "world_ranking": meta["world_ranking"]}
+        return {"name": player_name}
 
     def _build_match_payload(
         self,
@@ -92,7 +98,10 @@ class Tournament:
         return {
             "game_id": match_id,
             **defaults,
-            "players": [[player_a], [player_b]],
+            "players": [
+                [self._player_info(player_a)],
+                [self._player_info(player_b)],
+            ],
             "match_context": {
                 "match_type": "TOURNAMENT",
                 "created_by": self.config["created_by"],
@@ -170,9 +179,7 @@ class Tournament:
         try:
             match_ids = asyncio.run(self.get_next_match_payloads())
             for match_id in match_ids:
-                self.logger.info(
-                    "Scheduled match %s for tournament %s", match_id, self.id
-                )
+                self.logger.info("Scheduled match %s for tournament %s", match_id, self.id)
         except ValueError:
             return TournamentResult.NO_MATCHES, []
 

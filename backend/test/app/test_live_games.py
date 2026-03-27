@@ -22,9 +22,7 @@ async def client(valid_config: ConfigParser) -> AsyncGenerator[AsyncClient, None
 
     await init_redis()
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
     try:
@@ -48,9 +46,7 @@ async def test_get_live_games_empty(client: AsyncClient, is_redis_live: bool):
 
 
 @pytest.mark.asyncio
-async def test_get_live_games_filtering(
-    client: AsyncClient, is_redis_live: bool, valid_config: ConfigParser
-):
+async def test_get_live_games_filtering(client: AsyncClient, is_redis_live: bool, valid_config: ConfigParser):
     if not is_redis_live:
         pytest.skip("Redis is not available")
 
@@ -104,9 +100,7 @@ async def test_get_live_games_filtering(
 
 
 @pytest.mark.asyncio
-async def test_get_live_games_limit(
-    client: AsyncClient, is_redis_live: bool, valid_config: ConfigParser
-):
+async def test_get_live_games_limit(client: AsyncClient, is_redis_live: bool, valid_config: ConfigParser):
     if not is_redis_live:
         pytest.skip("Redis is not available")
 

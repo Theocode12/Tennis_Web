@@ -60,9 +60,7 @@ async def game_command_consumer(app: FastAPI) -> None:
                             payload,
                         )
                         await handle_command(app, message_id, payload)
-                        await redis_client.xack(
-                            STREAM_KEY, CONSUMER_GROUP, message_id
-                        )
+                        await redis_client.xack(STREAM_KEY, CONSUMER_GROUP, message_id)
                     except Exception:
                         logger.exception("Command handling failed")
                         # leave unacked

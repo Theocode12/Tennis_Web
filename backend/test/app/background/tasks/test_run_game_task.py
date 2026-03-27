@@ -39,9 +39,10 @@ def test_run_games_success(mock_from_state, mock_load_config, mock_get_redis):
 
     mock_tournament = MagicMock()
     mock_from_state.return_value = mock_tournament
-    
+
     # tick() returns (result, match_ids)
     from app.domain.tournament.tennis import TournamentResult
+
     mock_tournament.tick.return_value = (TournamentResult.CONTINUE, ["match-1", "match-2"])
     mock_tournament.serialize.return_value = {"state": "updated"}
 
@@ -55,9 +56,7 @@ def test_run_games_success(mock_from_state, mock_load_config, mock_get_redis):
 
         # Verify Redis commands sent
         assert mock_redis.xadd.call_count == 2
-        mock_redis.xadd.assert_any_call(
-            "tournament:commands", {"type": "START_STREAM", "match_id": "match-1"}
-        )
+        mock_redis.xadd.assert_any_call("tournament:commands", {"type": "START_STREAM", "match_id": "match-1"})
 
         # Verify rescheduled
         mock_apply_async.assert_called_once()
@@ -74,8 +73,9 @@ def test_run_games_finishes(mock_from_state, mock_load_config, mock_get_redis):
 
     mock_tournament = MagicMock()
     mock_from_state.return_value = mock_tournament
-    
+
     from app.domain.tournament.tennis import TournamentResult
+
     mock_tournament.tick.return_value = (TournamentResult.FINISHED, [])
 
     # Execute

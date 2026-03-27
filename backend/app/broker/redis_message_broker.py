@@ -46,10 +46,7 @@ class RedisMessageBroker(MessageBroker):
             self.redis = await self.redis_store.get_client()
             self.logger.info("Broker Connected to Redis successfully.")
         except RedisConnectionError as e:
-            err_msg = (
-                "Error connecting to Redis in Broker. "
-                "Please check your Redis server configuration."
-            )
+            err_msg = "Error connecting to Redis in Broker. Please check your Redis server configuration."
             self.logger.error(f"{err_msg}: {e}")
             raise RedisConnectionError(err_msg) from e
 
@@ -66,9 +63,7 @@ class RedisMessageBroker(MessageBroker):
         """
         return f"game:{game_id}:{channel}"
 
-    async def publish(
-        self, game_id: str, channel: BrokerChannels, message: Any
-    ) -> int:
+    async def publish(self, game_id: str, channel: BrokerChannels, message: Any) -> int:
         """
         Publish a message to a specific Redis channel scoped by the game_id.
 
@@ -138,16 +133,12 @@ class RedisMessageBroker(MessageBroker):
             await pubsub.subscribe(full_channel)
 
         self._active_pubsubs.add((pubsub, channels_list))
-        self.logger.info(
-            f"Subscribed to channels: {[f'{game_id}:{ch}' for ch in channels_list]}"
-        )
+        self.logger.info(f"Subscribed to channels: {[f'{game_id}:{ch}' for ch in channels_list]}")
 
         async def generator() -> AsyncGenerator[Any, None]:
             try:
                 async for message in pubsub.listen():
-                    self.logger.debug(
-                        f"Received msg on channel {message['channel']}: {message}"
-                    )
+                    self.logger.debug(f"Received msg on channel {message['channel']}: {message}")
                     if message["type"] == "message":
                         try:
                             data = json.loads(message["data"])
@@ -160,10 +151,7 @@ class RedisMessageBroker(MessageBroker):
                 for channel in channels_list:
                     full_channel = self._get_full_channel(game_id, channel)
                     await pubsub.unsubscribe(full_channel)
-                self.logger.info(
-                    "Unsubscribed from channels: "
-                    f"{[f'{game_id}:{ch}' for ch in channels_list]}"
-                )
+                self.logger.info(f"Unsubscribed from channels: {[f'{game_id}:{ch}' for ch in channels_list]}")
 
         return generator()
 

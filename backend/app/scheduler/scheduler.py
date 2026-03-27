@@ -131,9 +131,7 @@ class GameScheduler(BaseScheduler):
         self.speed = self.config.getfloat("app", "defaultGameSpeed", fallback=1.0)
         self.score_update_sleep_task: Task[None] | None = None
         self.state = SchedulerState.NOT_STARTED
-        self.pause_timeout_secs = self.config.getfloat(
-            "app", "pauseTimeoutSecs", fallback=60.0
-        )
+        self.pause_timeout_secs = self.config.getfloat("app", "pauseTimeoutSecs", fallback=60.0)
         self._pause_timer: Task[None] | None = None
         self.created_at = time.time()
         self.latest_score = None
@@ -206,9 +204,7 @@ class GameScheduler(BaseScheduler):
             await sleep(self.pause_timeout_secs)
             if not self.pause_event.is_set():
                 self.logger.warning(
-                    f"Game {self.game_id} paused "
-                    f"too long (>{self.pause_timeout_secs}s);"
-                    "SHUTTING DOWN SCHEDULER ..."
+                    f"Game {self.game_id} paused too long (>{self.pause_timeout_secs}s);SHUTTING DOWN SCHEDULER ..."
                 )
                 await self.resume_due_to_timeout()
 
@@ -229,9 +225,7 @@ class GameScheduler(BaseScheduler):
             - Cancels the game loop.
             - Sets internal state to AUTOPLAY.
         """
-        self.logger.info(
-            f"Resuming scheduler for {self.game_id} due to pause timeout."
-        )
+        self.logger.info(f"Resuming scheduler for {self.game_id} due to pause timeout.")
         self.state = SchedulerState.AUTOPLAY
         self.pause_event.set()  # Unblock the pause wait
         if self.score_update_sleep_task and not self.score_update_sleep_task.done():
@@ -276,14 +270,10 @@ class GameScheduler(BaseScheduler):
                     await self.score_update_sleep_task
                 except CancelledError:
                     if self._sleep_interrupted_intentionally:
-                        self.logger.debug(
-                            "Sleep interrupted locally (pause/speed change)."
-                        )
+                        self.logger.debug("Sleep interrupted locally (pause/speed change).")
                         self._sleep_interrupted_intentionally = False
                     else:
-                        self.logger.info(
-                            "Sleep cancelled externally; shutting down."
-                        )
+                        self.logger.info("Sleep cancelled externally; shutting down.")
                         raise
                 finally:
                     self.score_update_sleep_task = None
@@ -313,9 +303,7 @@ class GameScheduler(BaseScheduler):
                 try:
                     await self.state_publisher.cleanup(game_id=self.game_id)
                 except Exception:
-                    self.logger.exception(
-                        "Failed to cleanup scheduler state snapshot"
-                    )
+                    self.logger.exception("Failed to cleanup scheduler state snapshot")
 
             self.logger.info(f"Scheduler finished for game_id={self.game_id}.")
 
@@ -374,14 +362,10 @@ class GameScheduler(BaseScheduler):
             - Cancels current sleep task if one is running.
         """
         if new_speed <= 0:
-            self.logger.warning(
-                f"Ignored invalid speed={new_speed} for game_id={self.game_id}"
-            )
+            self.logger.warning(f"Ignored invalid speed={new_speed} for game_id={self.game_id}")
             return
 
-        self.logger.info(
-            f"Adjusting speed for game_id={self.game_id} to speed={new_speed}"
-        )
+        self.logger.info(f"Adjusting speed for game_id={self.game_id} to speed={new_speed}")
         self.speed = new_speed
 
         if self.score_update_sleep_task and not self.score_update_sleep_task.done():
@@ -395,14 +379,12 @@ class GameScheduler(BaseScheduler):
 
         Listens asynchronously for messages on the controls channel.
         """
-        self.logger.debug(
-            f"Scheduler for game_id={self.game_id} subscribing to controls."
-        )
+        self.logger.debug(f"Scheduler for game_id={self.game_id} subscribing to controls.")
 
         try:
-            control_iterator: AsyncGenerator[
-                dict[str, Any], None
-            ] = await self.broker.subscribe(self.game_id, BrokerChannels.CONTROLS)
+            control_iterator: AsyncGenerator[dict[str, Any], None] = await self.broker.subscribe(
+                self.game_id, BrokerChannels.CONTROLS
+            )
 
             async for message in control_iterator:
                 self.logger.debug(f"Received control message: {message}")
@@ -410,35 +392,22 @@ class GameScheduler(BaseScheduler):
                 handler = self.controls.get(command_type)
 
                 if handler:
-                    self.logger.info(
-                        f"Received control={command_type} for game_id={self.game_id}"
-                    )
+                    self.logger.info(f"Received control={command_type} for game_id={self.game_id}")
                     if command_type == SchedulerCommands.ADJUST_SPEED:
                         speed_value = message.get("speed")
                         if isinstance(speed_value, (int | float)):
                             await handler(float(speed_value))
                         else:
-                            self.logger.warning(
-                                f"Ignored invalid speed value: {speed_value}"
-                            )
+                            self.logger.warning(f"Ignored invalid speed value: {speed_value}")
                     else:
                         await handler()
                 else:
-                    self.logger.warning(
-                        f"Unknown control type={command_type} "
-                        f"for game_id={self.game_id}"
-                    )
+                    self.logger.warning(f"Unknown control type={command_type} for game_id={self.game_id}")
 
         except CancelledError:
-            self.logger.debug(
-                f"Control subscription cancelled for game_id={self.game_id}"
-            )
+            self.logger.debug(f"Control subscription cancelled for game_id={self.game_id}")
             raise
         except Exception:
-            self.logger.exception(
-                f"Control subscription error for game_id={self.game_id}"
-            )
+            self.logger.exception(f"Control subscription error for game_id={self.game_id}")
         finally:
-            self.logger.info(
-                f"Scheduler unsubscribed from controls for game_id={self.game_id}."
-            )
+            self.logger.info(f"Scheduler unsubscribed from controls for game_id={self.game_id}.")

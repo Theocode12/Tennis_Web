@@ -127,9 +127,7 @@ class SchedulerManager:
             return await scheduler.get_metadata()
         return None
 
-    async def create_or_get_scheduler(
-        self, game_id: str
-    ) -> tuple[BaseScheduler, asyncio.Task[None]]:
+    async def create_or_get_scheduler(self, game_id: str) -> tuple[BaseScheduler, asyncio.Task[None]]:
         """
         Create and start a scheduler for the given game if not already running.
 
@@ -145,10 +143,7 @@ class SchedulerManager:
         """
         async with self._lock:
             if game_id in self._scheduler_tasks:
-                self.logger.info(
-                    f"Scheduler already exists for game {game_id}. "
-                    "Returning existing."
-                )
+                self.logger.info(f"Scheduler already exists for game {game_id}. Returning existing.")
                 return self._schedulers[game_id], self._scheduler_tasks[game_id]
 
             try:
@@ -164,24 +159,18 @@ class SchedulerManager:
                     state_publisher=state_publisher,
                 )
 
-                task = asyncio.create_task(
-                    scheduler.run(), name=f"scheduler_run_{game_id}"
-                )
+                task = asyncio.create_task(scheduler.run(), name=f"scheduler_run_{game_id}")
 
                 self._schedulers[game_id] = scheduler
                 self._scheduler_tasks[game_id] = task
 
                 task.add_done_callback(self._handle_task_completion)
 
-                self.logger.info(
-                    f"Scheduler for game {game_id} created and running."
-                )
+                self.logger.info(f"Scheduler for game {game_id} created and running.")
                 return scheduler, task
 
             except Exception as e:
-                self.logger.error(
-                    f"Failed to create scheduler for {game_id}: {e}", exc_info=True
-                )
+                self.logger.error(f"Failed to create scheduler for {game_id}: {e}", exc_info=True)
                 self._schedulers.pop(game_id, None)
                 self._scheduler_tasks.pop(game_id, None)
                 raise RuntimeError(f"Scheduler creation failed for {game_id}") from e
@@ -215,9 +204,7 @@ class SchedulerManager:
             cleanup.add_done_callback(self._background_tasks.discard)
 
         except Exception as e:
-            self.logger.error(
-                f"Error in _handle_task_completion: {e}", exc_info=True
-            )
+            self.logger.error(f"Error in _handle_task_completion: {e}", exc_info=True)
 
     async def cleanup_scheduler(self, game_id: str) -> None:
         """
@@ -244,9 +231,7 @@ class SchedulerManager:
             except asyncio.TimeoutError:
                 self.logger.warning(f"Timeout while cancelling task for {game_id}.")
             except Exception as e:
-                self.logger.error(
-                    f"Error during task cancellation: {e}", exc_info=True
-                )
+                self.logger.error(f"Error during task cancellation: {e}", exc_info=True)
         self.logger.info(f"Scheduler cleanup for game {game_id} complete.")
 
     async def shutdown(self) -> None:
@@ -276,12 +261,8 @@ class SchedulerManager:
             await asyncio.gather(*cleanup_tasks, return_exceptions=True)
 
             if self._schedulers or self._scheduler_tasks:
-                self.logger.warning(
-                    f"Remaining schedulers: {list(self._schedulers.keys())}"
-                )
-                self.logger.warning(
-                    f"Remaining tasks: {list(self._scheduler_tasks.keys())}"
-                )
+                self.logger.warning(f"Remaining schedulers: {list(self._schedulers.keys())}")
+                self.logger.warning(f"Remaining tasks: {list(self._scheduler_tasks.keys())}")
             else:
                 self.logger.info("All schedulers shut down cleanly.")
 

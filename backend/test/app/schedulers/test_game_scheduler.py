@@ -320,9 +320,7 @@ async def test_run_publishes_sentinel_on_completion(
     broker.subscribe.return_value = empty_generator()
 
     # 3. Create and run the scheduler
-    scheduler = GameScheduler(
-        "test_game", broker, feeder, config=valid_config, logger=dummy_logger
-    )
+    scheduler = GameScheduler("test_game", broker, feeder, config=valid_config, logger=dummy_logger)
     scheduler.speed = 0  # Run as fast as possible
     await scheduler.start()  # Set state to ONGOING
 

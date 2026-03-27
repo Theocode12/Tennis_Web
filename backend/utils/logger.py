@@ -28,9 +28,7 @@ class AppLogger:
     levels and formats.
     """
 
-    def __init__(
-        self, name: str = "app", config: ConfigParser | None = None
-    ) -> None:
+    def __init__(self, name: str = "app", config: ConfigParser | None = None) -> None:
         """
         Initialize AppLogger with a logger name and optional config.
 
@@ -81,9 +79,7 @@ class AppLogger:
             fallback="%(asctime)s [%(levelname)s] %(message)s",
             raw=True,
         )
-        date_format = self.config.get(
-            "logging", "dateFormat", fallback="%Y-%m-%dT%H:%M:%S", raw=True
-        )
+        date_format = self.config.get("logging", "dateFormat", fallback="%Y-%m-%dT%H:%M:%S", raw=True)
         return logging.Formatter(log_format, datefmt=date_format)
 
     def set_console_handler(self) -> None:
@@ -102,27 +98,19 @@ class AppLogger:
         if not self.config.getboolean("logging", "serverLogs", fallback=True):
             return
 
-        logfile = self.config.get(
-            "logging", "serverLogFile", fallback="logs/server.log"
-        )
-        max_file_size = self.config.getint(
-            "logging", "maxFileSize", fallback=10 * 1024 * 1024
-        )
+        logfile = self.config.get("logging", "serverLogFile", fallback="logs/server.log")
+        max_file_size = self.config.getint("logging", "maxFileSize", fallback=10 * 1024 * 1024)
         backup_count = self.config.getint("logging", "backupCount", fallback=5)
 
         log_path = Path(logfile)
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
-        handler = RotatingFileHandler(
-            logfile, maxBytes=max_file_size, backupCount=backup_count
-        )
+        handler = RotatingFileHandler(logfile, maxBytes=max_file_size, backupCount=backup_count)
         handler.setFormatter(self.get_formatter())
         self.logger.addHandler(handler)
 
 
-def get_logger(
-    name: str = "app", config: ConfigParser | None = None
-) -> logging.Logger:
+def get_logger(name: str = "app", config: ConfigParser | None = None) -> logging.Logger:
     """
     Return a configured logger instance.
 

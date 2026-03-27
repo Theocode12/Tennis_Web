@@ -92,6 +92,4 @@ async def test_viewer_count_calculation(message_namespace, mock_context):
     await message_namespace._emit_viewer_count("game1")
 
     # count should be 2
-    message_namespace.emit.assert_awaited_once_with(
-        GameEvent.VIEWER_COUNT, {"count": 2}, room="game1"
-    )
+    message_namespace.emit.assert_awaited_once_with(GameEvent.VIEWER_COUNT, {"count": 2}, room="game1")

@@ -70,9 +70,7 @@ class SocketIOServerContext:
 
     def register(self) -> None:
         self.context.sio.register_namespace(GameNamespace("/game", self.context))
-        self.context.sio.register_namespace(
-            MessageNamespace("/messages", self.context)
-        )
+        self.context.sio.register_namespace(MessageNamespace("/messages", self.context))
 
     def get_scheduler_manager(self) -> SchedulerManager:
         return self.scheduler_manager

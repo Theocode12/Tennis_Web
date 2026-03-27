@@ -45,9 +45,7 @@ def run_tournament_games_task(self, tournament_id: str):
 
         self.apply_async(
             args=[tournament_id],
-            countdown=config.getint(
-                "background", "TournamentTickSeconds", fallback=120
-            ),
+            countdown=config.getint("background", "TournamentTickSeconds", fallback=120),
         )
     except Exception as e:
         redis.delete(mens_tennis_lock())

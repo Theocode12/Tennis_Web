@@ -39,7 +39,7 @@ dependencies = [
     "watchfiles==1.0.5",
     "websockets==15.0.1",
     "wsproto==1.2.0",
-    "GameEngine @ git+ssh://git@github.com/Theocode12/GameEngine.git@v0.2.0",
+    "GameEngine @ git+ssh://git@github.com/Theocode12/GameEngine.git@v0.3.0",
 ]
 
 [project.optional-dependencies]
@@ -60,6 +60,9 @@ dev = [
     "typing-inspection==0.4.0",
 ]
 
+[tool.setuptools]
+packages = []
+
 [tool.ruff]
 exclude = [".git", ".ruff_cache", ".venv"]
 target-version = "py310"
@@ -67,7 +70,7 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "C4", "B", "RUF"]
-ignore = ["E501", "E731"]
+ignore = ["E501", "E731", "B008", "RUF013"]
 fixable = ["ALL"]
 unfixable = []
 

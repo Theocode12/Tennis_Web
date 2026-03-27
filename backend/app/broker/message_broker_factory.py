@@ -8,9 +8,7 @@ from app.broker.message_broker import MessageBroker
 from app.broker.redis_message_broker import RedisMessageBroker
 
 
-def get_message_broker(
-    config: configparser.ConfigParser, logger: logging.Logger
-) -> MessageBroker:
+def get_message_broker(config: configparser.ConfigParser, logger: logging.Logger) -> MessageBroker:
     """
     Factory function to create a MessageBroker instance based on the configuration.
 
@@ -23,9 +21,7 @@ def get_message_broker(
     """
 
     try:
-        broker_type = (
-            config.get("app", "messageBroker", fallback="redis").strip().lower()
-        )
+        broker_type = config.get("app", "messageBroker", fallback="redis").strip().lower()
     except Exception as e:
         msg = f"Failed to retrieve broker type from config: {e}"
         logger.exception(msg)

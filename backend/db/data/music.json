@@ -1,0 +1,25 @@
+{
+  "songs": [
+    {
+      "id": "test_song",
+      "title": "Courage To Change",
+      "artist": "Sia"
+    },
+    {
+      "id": "a52e6884-431e-4115-a54c-87e072d41237",
+      "title": "test_song_api",
+      "artist": "me",
+      "status": "ready"
+    }
+  ],
+  "playlists": [
+    {
+      "id": "week_1",
+      "name": "This Week",
+      "songs": [
+        "test_song",
+        "a52e6884-431e-4115-a54c-87e072d41237"
+      ]
+    }
+  ]
+}

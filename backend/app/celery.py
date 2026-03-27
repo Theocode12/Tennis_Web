@@ -23,9 +23,7 @@ class AppRequest(Request):  # type: ignore
         send_failed_event: bool = True,
         return_ok: bool = False,
     ) -> None:
-        super().on_failure(
-            exc_info, send_failed_event=send_failed_event, return_ok=return_ok
-        )
+        super().on_failure(exc_info, send_failed_event=send_failed_event, return_ok=return_ok)
         logger.warning("Failure detected for task %s", self.task.name)
 
 
@@ -36,12 +34,8 @@ class BaseTask(Task):  # type: ignore
 configParser = load_config()
 app = Celery(
     "app",
-    broker=configParser.get(
-        "celery", "BrokerUrl", fallback="redis://localhost:6379/0"
-    ),
-    backend=configParser.get(
-        "celery", "BackendUrl", fallback="redis://localhost:6379/0"
-    ),
+    broker=configParser.get("celery", "BrokerUrl", fallback="redis://localhost:6379/0"),
+    backend=configParser.get("celery", "BackendUrl", fallback="redis://localhost:6379/0"),
     task_cls=BaseTask,
 )
 

@@ -29,7 +29,5 @@ async def handle_start_stream(app: FastAPI, payload: dict) -> None:
     sio_context = app.state.sio_context
     scheduler_manager = sio_context.get_scheduler_manager()
 
-    scheduler, _ = await scheduler_manager.create_or_get_scheduler(
-        game_id=str(match_id)
-    )
+    scheduler, _ = await scheduler_manager.create_or_get_scheduler(game_id=str(match_id))
     await scheduler.start()

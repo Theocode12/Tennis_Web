@@ -51,21 +51,14 @@ class GameNamespace(BaseNamespace):
                 if room == sid:
                     continue  # Skip the client's default room
 
-                self.logger.info(
-                    f"Removing client {sid} from room {room} in "
-                    f"namespace {self.namespace}"
-                )
+                self.logger.info(f"Removing client {sid} from room {room} in namespace {self.namespace}")
                 await self.leave_room(sid, room)
 
         except Exception as e:
-            self.logger.error(
-                f"Error during disconnect cleanup for SID {sid}: {e}", exc_info=True
-            )
+            self.logger.error(f"Error during disconnect cleanup for SID {sid}: {e}", exc_info=True)
 
     async def on_game(self, sid: str, data: Any) -> None:
-        self.logger.debug(
-            f"Received 'message' event on {self.namespace} from SID {sid}: {data}"
-        )
+        self.logger.debug(f"Received 'message' event on {self.namespace} from SID {sid}: {data}")
         try:
             if not isinstance(data, dict):
                 raise MessageError("Data must be of type dict.")
@@ -74,7 +67,5 @@ class GameNamespace(BaseNamespace):
             self.logger.error(f"MessageError in {self.namespace} for SID {sid}: {e}")
             await self.emit_error(sid, str(e))
         except Exception as e:
-            self.logger.exception(
-                f"Error processing message in {self.namespace} for SID {sid}: {e}"
-            )
+            self.logger.exception(f"Error processing message in {self.namespace} for SID {sid}: {e}")
             await self.emit_error(sid, "Internal server error")

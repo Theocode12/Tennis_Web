@@ -19,9 +19,7 @@ async def put_and_start_game_in_scheduler_manager(
     scheduler_manager = sio_context.context.scheduler_manager
 
     scheduler1, _ = await scheduler_manager.create_or_get_scheduler(game_id)
-    scheduler2, _ = await scheduler_manager.create_or_get_scheduler(
-        "e6dbc235-3e1e-4e5d-9a82-536efc17a37a"
-    )
+    scheduler2, _ = await scheduler_manager.create_or_get_scheduler("e6dbc235-3e1e-4e5d-9a82-536efc17a37a")
     await scheduler1.start()
     await scheduler2.start()
     print(scheduler_manager._schedulers)

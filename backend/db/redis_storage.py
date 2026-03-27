@@ -18,9 +18,7 @@ class RedisStorageBase:
     connection validation and optional logger support.
     """
 
-    def __init__(
-        self, config: configparser.ConfigParser, logger: Logger | None = None
-    ) -> None:
+    def __init__(self, config: configparser.ConfigParser, logger: Logger | None = None) -> None:
         """
         Initialize the Redis storage manager.
 

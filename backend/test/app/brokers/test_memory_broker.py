@@ -74,10 +74,7 @@ async def test_subscribe_and_unsubscribe_cleanup(
     await broker.shutdown()
     await task
 
-    assert (
-        game_id not in broker._subscribers
-        or channel not in broker._subscribers[game_id]
-    )
+    assert game_id not in broker._subscribers or channel not in broker._subscribers[game_id]
 
 
 @pytest.mark.asyncio

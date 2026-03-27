@@ -31,9 +31,7 @@ def create_game_feeder(
     logger = logger or logging.getLogger(__name__)
 
     try:
-        feeder_type = (
-            config.get("app", "gameFeeder", fallback="file").strip().lower()
-        )
+        feeder_type = config.get("app", "gameFeeder", fallback="file").strip().lower()
     except Exception as e:
         msg = f"Failed to retrieve feeder type from config for game {game_id}: {e}"
         logger.exception(msg)

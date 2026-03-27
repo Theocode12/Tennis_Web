@@ -29,9 +29,7 @@ class BaseGameFeeder(ABC):
     _exhausted: bool
     logger: Logger
 
-    def __init__(
-        self, game_id: str, batch_size: int = 30, logger: Logger | None = None
-    ) -> None:
+    def __init__(self, game_id: str, batch_size: int = 30, logger: Logger | None = None) -> None:
         """
         Initialize the game feeder with batching support.
 
@@ -100,9 +98,7 @@ class BaseGameFeeder(ABC):
 
         self._buffer.extend(new_batch)
         if hasattr(self, "logger"):
-            self.logger.debug(
-                f"Loaded batch of {len(new_batch)} scores for game_id={self.game_id}"
-            )
+            self.logger.debug(f"Loaded batch of {len(new_batch)} scores for game_id={self.game_id}")
 
     async def cleanup(self) -> None:
         """
@@ -167,12 +163,8 @@ class RedisGameFeeder(BaseGameFeeder):
                 async with self.storage.get_client() as client:
                     raw_data = await client.get(self.game_id)
                     if raw_data is None:
-                        self.logger.warning(
-                            f"No game metadata found for ID: {self.game_id}"
-                        )
-                        raise KeyError(
-                            f"Missing metadata for game_id={self.game_id}"
-                        )
+                        self.logger.warning(f"No game metadata found for ID: {self.game_id}")
+                        raise KeyError(f"Missing metadata for game_id={self.game_id}")
 
                     data = json.loads(raw_data)
 
@@ -184,9 +176,7 @@ class RedisGameFeeder(BaseGameFeeder):
                 self.logger.debug(f"Game details loaded for game_id={self.game_id}")
 
             except (json.JSONDecodeError, KeyError) as e:
-                self.logger.exception(
-                    f"Failed to retrieve game details from Redis: {e}"
-                )
+                self.logger.exception(f"Failed to retrieve game details from Redis: {e}")
                 raise
 
         return self._game_details
@@ -219,9 +209,7 @@ class RedisGameFeeder(BaseGameFeeder):
         raw = client.llen(key)
         return await cast(Awaitable[int], raw)
 
-    async def _get_batch(
-        self, client: redis.Redis, start: int, end: int
-    ) -> list[str]:
+    async def _get_batch(self, client: redis.Redis, start: int, end: int) -> list[str]:
         """
         Retrieve a batch of score entries from Redis.
 
@@ -252,27 +240,18 @@ class RedisGameFeeder(BaseGameFeeder):
             list_length = await self._get_length(client, self.score_key)
 
             if self.cursor >= list_length:
-                self.logger.debug(
-                    f"No more scores to load for game_id={self.game_id}"
-                )
+                self.logger.debug(f"No more scores to load for game_id={self.game_id}")
                 return []
 
-            batch = await self._get_batch(
-                client, self.cursor, self.cursor + self.batch_size - 1
-            )
+            batch = await self._get_batch(client, self.cursor, self.cursor + self.batch_size - 1)
             self.cursor += len(batch)
 
             try:
                 parsed_batch = [json.loads(score) for score in batch]
-                self.logger.debug(
-                    f"Loaded score batch of size {len(parsed_batch)} "
-                    f"for game_id={self.game_id}"
-                )
+                self.logger.debug(f"Loaded score batch of size {len(parsed_batch)} for game_id={self.game_id}")
                 return parsed_batch
             except json.JSONDecodeError:
-                self.logger.exception(
-                    f"Error decoding score batch for game_id={self.game_id}"
-                )
+                self.logger.exception(f"Error decoding score batch for game_id={self.game_id}")
                 raise
 
 
@@ -327,14 +306,10 @@ class FileGameFeeder(BaseGameFeeder):
                         "match_context": data["match_context"],
                     }
 
-                    self.logger.debug(
-                        f"Loaded game details for game_id={self.game_id}"
-                    )
+                    self.logger.debug(f"Loaded game details for game_id={self.game_id}")
 
                 except (json.JSONDecodeError, KeyError):
-                    self.logger.exception(
-                        f"Error parsing game file: {self.file_path}"
-                    )
+                    self.logger.exception(f"Error parsing game file: {self.file_path}")
                     raise
 
             else:
@@ -360,9 +335,7 @@ class FileGameFeeder(BaseGameFeeder):
                     data: dict[str, Any] = json.load(f)
                 self.logger.debug(f"Loaded score batch for game_id={self.game_id}")
             except json.JSONDecodeError:
-                self.logger.exception(
-                    f"Failed to parse score data: {self.file_path}"
-                )
+                self.logger.exception(f"Failed to parse score data: {self.file_path}")
                 raise
         else:
             self._exhausted = True

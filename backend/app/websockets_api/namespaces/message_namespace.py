@@ -43,9 +43,7 @@ class MessageNamespace(BaseNamespace):  # type: ignore[misc]
 
         game_id = session["game_id"]
 
-        self.logger.debug(
-            f"[messages] Client {sid} disconnected from game {game_id}"
-        )
+        self.logger.debug(f"[messages] Client {sid} disconnected from game {game_id}")
 
         await self.leave_room(sid, game_id)
         await self._emit_viewer_count(game_id)
@@ -88,9 +86,7 @@ class MessageNamespace(BaseNamespace):  # type: ignore[misc]
         }
 
         await self.enter_room(sid, game_id)
-        self.logger.info(
-            f"[messages] SID={sid} joined game room {game_id} as '{username}'"
-        )
+        self.logger.info(f"[messages] SID={sid} joined game room {game_id} as '{username}'")
 
         await self._emit_viewer_count(game_id)
 
