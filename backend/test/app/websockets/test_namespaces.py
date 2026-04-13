@@ -8,7 +8,6 @@ from pytest import MonkeyPatch
 
 from app.exceptions.message_error import MessageError
 from app.shared.enums.game_event import GameEvent
-from app.websockets_api.namespaces.base_namespace import BaseNamespace
 from app.websockets_api.namespaces.game_namespace import GameNamespace
 from app.websockets_api.namespaces.message_dispacter import MessageDispatcher
 
@@ -22,14 +21,14 @@ async def test_on_message_dispatch_success(monkeypatch: MonkeyPatch) -> None:
     context = MagicMock()
     context.logger = MagicMock()
 
-    namespace = BaseNamespace("/game", context)
+    namespace = GameNamespace("/game", context)
     namespace.dispatcher = mock_dispatcher
     namespace.emit = mock_emit
 
     data = {"type": GameEvent.GAME_JOIN.value, "player": "alice"}
     sid = "session1"
 
-    await namespace.on_message(sid, data)
+    await namespace.on_game(sid, data)
 
     mock_dispatcher.dispatch.assert_awaited_once_with(sid, data, "/game")
     mock_emit.assert_not_awaited()
@@ -41,14 +40,14 @@ async def test_on_message_invalid_data_type_triggers_error() -> None:
     context = MagicMock()
     context.logger = MagicMock()
 
-    namespace = BaseNamespace("/game", context)
+    namespace = GameNamespace("/game", context)
     namespace.dispatcher = MagicMock()
     namespace.emit = AsyncMock()
 
     sid = "session1"
     data = ["not", "a", "dict"]
 
-    await namespace.on_message(sid, data)
+    await namespace.on_game(sid, data)
 
     namespace.emit.assert_awaited_once()
     args, kwargs = namespace.emit.call_args
@@ -67,17 +66,17 @@ async def test_on_message_dispatch_raises_message_error() -> None:
     context = MagicMock()
     context.logger = MagicMock()
 
-    namespace = BaseNamespace("/game", context)
+    namespace = GameNamespace("/game", context)
     namespace.dispatcher = mock_dispatcher
     namespace.emit = AsyncMock()
 
     data = {"type": GameEvent.GAME_JOIN.value}
     sid = "sid123"
 
-    await namespace.on_message(sid, data)
+    await namespace.on_game(sid, data)
 
     namespace.emit.assert_awaited_once()
-    args, kwargs = namespace.emit.call_args
+    args, _ = namespace.emit.call_args
     assert args[0] == GameEvent.ERROR.value
 
 
@@ -192,55 +191,23 @@ async def test_dispatch_valid_schema_success() -> None:
 
 
 @pytest.mark.asyncio
-async def test_on_disconnect_leaves_room_but_not_empty() -> None:
-    """Test on_disconnect leaves room, but doesn't close it if not empty."""
+async def test_on_disconnect_success() -> None:
+    """Test on_disconnect leaves room."""
     sid = "sid1"
     room = "game1"
     namespace_str = "/game"
 
     mock_context = MagicMock()
     mock_context.sio.rooms.return_value = [sid, room]
-    mock_context.client_manager.get_participants.return_value = ["another_sid"]
     mock_context.logger = MagicMock()
 
     namespace = GameNamespace(namespace_str, mock_context)
     namespace.leave_room = AsyncMock()
-    namespace.close_room = AsyncMock()
 
     await namespace.on_disconnect(sid)
 
     mock_context.sio.rooms.assert_called_once_with(sid, namespace=namespace_str)
     namespace.leave_room.assert_awaited_once_with(sid, room)
-    mock_context.client_manager.get_participants.assert_called_once_with(
-        namespace_str, room
-    )
-    namespace.close_room.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_on_disconnect_closes_empty_room() -> None:
-    """Test on_disconnect leaves room and closes it when it becomes empty."""
-    sid = "sid1"
-    room = "game1"
-    namespace_str = "/game"
-
-    mock_context = MagicMock()
-    mock_context.sio.rooms.return_value = [sid, room]
-    mock_context.client_manager.get_participants.return_value = []
-    mock_context.logger = MagicMock()
-
-    namespace = GameNamespace(namespace_str, mock_context)
-    namespace.leave_room = AsyncMock()
-    namespace.close_room = AsyncMock()
-
-    await namespace.on_disconnect(sid)
-
-    mock_context.sio.rooms.assert_called_once_with(sid, namespace=namespace_str)
-    namespace.leave_room.assert_awaited_once_with(sid, room)
-    mock_context.client_manager.get_participants.assert_called_once_with(
-        namespace_str, room
-    )
-    namespace.close_room.assert_awaited_once_with(room)
 
 
 @pytest.mark.asyncio
@@ -261,7 +228,6 @@ async def test_on_disconnect_no_custom_rooms() -> None:
 
     namespace.leave_room.assert_not_awaited()
     namespace.close_room.assert_not_awaited()
-    mock_context.client_manager.get_participants.assert_not_called()
 
 
 @pytest.mark.asyncio

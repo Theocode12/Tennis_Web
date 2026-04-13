@@ -29,9 +29,7 @@ class InMemoryMessageBroker(MessageBroker):
         logger: logging.Logger | None = None,
     ) -> None:
         super().__init__(config, logger)
-        self._subscribers: dict[str, dict[str, set[asyncio.Queue[Any]]]] = (
-            defaultdict(lambda: defaultdict(set))
-        )
+        self._subscribers: dict[str, dict[str, set[asyncio.Queue[Any]]]] = defaultdict(lambda: defaultdict(set))
         self._shutdown = asyncio.Event()
         self.logger.info("InMemoryMessageBroker initialized.")
 
@@ -48,9 +46,7 @@ class InMemoryMessageBroker(MessageBroker):
             int: Number of queues successfully notified.
         """
         if self._shutdown.is_set():
-            self.logger.warning(
-                "Publish ignored: InMemoryMessageBroker is shutting down."
-            )
+            self.logger.warning("Publish ignored: InMemoryMessageBroker is shutting down.")
             return 0
 
         subscribers = self._subscribers.get(game_id, {}).get(channel, set())
@@ -65,8 +61,7 @@ class InMemoryMessageBroker(MessageBroker):
             if isinstance(r, Exception):
                 queue_info = list(subscribers)[i]
                 self.logger.error(
-                    f"InMemoryMessageBroker: Failed to publish to "
-                    f"{game_id}:{channel}, queue={queue_info}: {r}",
+                    f"InMemoryMessageBroker: Failed to publish to {game_id}:{channel}, queue={queue_info}: {r}",
                     exc_info=r,
                 )
             else:
@@ -102,8 +97,7 @@ class InMemoryMessageBroker(MessageBroker):
         queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=100)
 
         self.logger.info(
-            f"InMemoryMessageBroker: Subscribing to channels for game_id={game_id}, "
-            f"channels={channels_list}"
+            f"InMemoryMessageBroker: Subscribing to channels for game_id={game_id}, channels={channels_list}"
         )
 
         for channel in channels_list:
@@ -116,9 +110,7 @@ class InMemoryMessageBroker(MessageBroker):
                         message = await asyncio.wait_for(queue.get(), timeout=1.0)
                         if isinstance(message, dict) and message.get("__sentinel__"):
                             break
-                        self.logger.debug(
-                            f"InMemoryMessageBroker: Received message {message}."
-                        )
+                        self.logger.debug(f"InMemoryMessageBroker: Received message {message}.")
                         yield message
                     except asyncio.TimeoutError:
                         continue
@@ -129,9 +121,7 @@ class InMemoryMessageBroker(MessageBroker):
 
         return generator()
 
-    def _unsubscribe(
-        self, game_id: str, channels: list[BrokerChannels], queue: asyncio.Queue[Any]
-    ) -> None:
+    def _unsubscribe(self, game_id: str, channels: list[BrokerChannels], queue: asyncio.Queue[Any]) -> None:
         """
         Unsubscribe a queue from all specified channels under a game_id.
 
@@ -140,9 +130,7 @@ class InMemoryMessageBroker(MessageBroker):
             channels (list[BrokerChannels]): Channels to remove the queue from.
             queue (asyncio.Queue[Any]): The queue to remove.
         """
-        self.logger.debug(
-            f"Unsubscribing queue from channels :{channels}. Game id {game_id}."
-        )
+        self.logger.debug(f"Unsubscribing queue from channels :{channels}. Game id {game_id}.")
         channel_map = self._subscribers.get(game_id)
         if not channel_map:
             return
@@ -156,9 +144,7 @@ class InMemoryMessageBroker(MessageBroker):
 
         if not channel_map:
             self._subscribers.pop(game_id, None)
-        self.logger.debug(
-            f"Unsubscribe by listener completed for game_id {game_id}."
-        )
+        self.logger.debug(f"Unsubscribe by listener completed for game_id {game_id}.")
 
     async def shutdown(self) -> None:
         """

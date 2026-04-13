@@ -21,9 +21,7 @@ class MessageBroker(ABC):
         self.config = config or load_config()
 
     @abstractmethod
-    async def publish(
-        self, game_id: str, channel: BrokerChannels, message: Any
-    ) -> int:
+    async def publish(self, game_id: str, channel: BrokerChannels, message: Any) -> int:
         """Publish message to specific game/channel"""
         pass
 

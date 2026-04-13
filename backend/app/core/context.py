@@ -33,6 +33,7 @@ class AppContext:
         auth: AuthService,
         router: Router,
         scheduler_manager: SchedulerManager,
+        broker_relay: BrokerRelay,
         config: configparser.ConfigParser | None = None,
         logger: logging.Logger | None = None,
     ):
@@ -44,4 +45,4 @@ class AppContext:
         self.logger = logger or get_logger()
         self.scheduler_manager = scheduler_manager
         self.client_manager = self.sio.manager
-        self.broker_relay = BrokerRelay(self)
+        self.broker_relay = broker_relay

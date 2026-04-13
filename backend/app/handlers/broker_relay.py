@@ -1,28 +1,30 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
+from socketio import AsyncServer  # type: ignore
+
+from app.broker.message_broker import MessageBroker
 from app.shared.enums.broker_channels import BrokerChannels
 
 if TYPE_CHECKING:
-    from app.core.context import AppContext
+    pass
 
-MessageProcessor = Callable[
-    [dict[str, Any]], Awaitable[tuple[str, dict[str, Any]] | None]
-]
+MessageProcessor = Callable[[dict[str, Any]], Awaitable[tuple[str, dict[str, Any]] | None]]
 
 
 class BrokerRelay:
-    def __init__(self, context: AppContext):
-        self._context = context
+    def __init__(self, sio: AsyncServer, broker: MessageBroker, logger: logging.Logger):
+        self._sio = sio
+        self._broker = broker
+        self._logger = logger
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._lock = asyncio.Lock()
 
-    def _create_subscription_key(
-        self, game_id: str, channels: list[BrokerChannels]
-    ) -> str:
+    def _create_subscription_key(self, game_id: str, channels: list[BrokerChannels]) -> str:
         return f"{game_id}:{'+'.join(sorted(c.value for c in channels))}"
 
     async def start_listener(
@@ -35,9 +37,7 @@ class BrokerRelay:
         key = self._create_subscription_key(game_id, channels)
         async with self._lock:
             if key in self._tasks:
-                self._context.logger.debug(
-                    f"Reusing existing broker relay for {key}."
-                )
+                self._logger.debug(f"Reusing existing broker relay for {key}.")
                 return
 
             task = asyncio.create_task(
@@ -48,10 +48,10 @@ class BrokerRelay:
 
             def _done_callback(t: asyncio.Task[None]) -> None:
                 self._tasks.pop(key, None)
-                self._context.logger.debug(f"Broker relay task removed: {key}")
+                self._logger.debug(f"Broker relay task removed: {key}")
 
             task.add_done_callback(_done_callback)
-            self._context.logger.info(f"Broker relay started for {key}.")
+            self._logger.info(f"Broker relay started for {key}.")
 
     async def _listener(
         self,
@@ -61,7 +61,7 @@ class BrokerRelay:
         processor: MessageProcessor,
     ) -> None:
         try:
-            iterator = await self._context.broker.subscribe(game_id, channels)
+            iterator = await self._broker.subscribe(game_id, channels)
             async for message in iterator:
                 if not isinstance(message, dict):
                     continue
@@ -71,22 +71,20 @@ class BrokerRelay:
                     continue
 
                 event_name, payload = result
-                await self._context.sio.emit(
-                    event_name, payload, room=game_id, namespace=namespace
-                )
+                await self._sio.emit(event_name, payload, room=game_id, namespace=namespace)
         except asyncio.CancelledError:
-            self._context.logger.debug(f"Broker relay cancelled for {game_id}.")
+            self._logger.debug(f"Broker relay cancelled for {game_id}.")
             raise
         except Exception as e:
-            self._context.logger.error(
-                f"Error in broker relay ({game_id}, {channels}): {e}", exc_info=True
-            )
+            self._logger.error(f"Error in broker relay ({game_id}, {channels}): {e}", exc_info=True)
         finally:
-            self._context.logger.info(
-                f"Broker relay for game_id={game_id}, channels={channels} ended."
-            )
+            self._logger.info(f"Broker relay for game_id={game_id}, channels={channels} ended.")
 
-    async def stop_all(self) -> None:
+    async def shutdown(self) -> None:
+        """
+        Cancel all broker relay tasks.
+        """
+        self._logger.info("Shutting down broker relay...")
         async with self._lock:
             tasks_to_cancel = list(self._tasks.values())
             self._tasks.clear()
@@ -97,4 +95,4 @@ class BrokerRelay:
         for task in tasks_to_cancel:
             task.cancel()
         await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
-        self._context.logger.info("All broker relays have been stopped.")
+        self._logger.info("All broker relays have been stopped.")

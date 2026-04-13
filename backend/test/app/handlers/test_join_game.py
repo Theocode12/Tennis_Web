@@ -17,12 +17,13 @@ def mock_context() -> MagicMock:
     context = MagicMock()
     context.logger = MagicMock()
     context.scheduler_manager = MagicMock()
+    context.scheduler_manager.get_game_data = AsyncMock()
     context.sio = AsyncMock()
     context.broker_relay = AsyncMock()
 
     config = ConfigParser()
     config.add_section("broker")
-    config.set("broker", "relay_channels", "SCORES_UPDATE,CONTROLS")
+    config.set("broker", "relay_channels", "scores_update,controls")
     context.config = config
 
     return context
@@ -35,9 +36,7 @@ def join_game_handler(mock_context: MagicMock) -> JoinGameHandler:
 
 
 @pytest.mark.asyncio
-async def test_handle_missing_game_id(
-    join_game_handler: JoinGameHandler, mock_context: MagicMock
-) -> None:
+async def test_handle_missing_game_id(join_game_handler: JoinGameHandler, mock_context: MagicMock) -> None:
     """Verify that a request without a game_id is rejected."""
     sid = "test_sid"
     data = {"namespace": "/game"}  # Missing game_id
@@ -50,22 +49,20 @@ async def test_handle_missing_game_id(
         to=sid,
         namespace="/game",
     )
-    mock_context.scheduler_manager.get_scheduler.assert_not_called()
+    mock_context.scheduler_manager.has_scheduler.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_handle_game_not_found(
-    join_game_handler: JoinGameHandler, mock_context: MagicMock
-) -> None:
+async def test_handle_game_not_found(join_game_handler: JoinGameHandler, mock_context: MagicMock) -> None:
     """Verify that a request for a non-existent game is rejected."""
     sid = "test_sid"
     game_id = "non_existent_game"
     data = {"game_id": game_id, "namespace": "/game"}
-    mock_context.scheduler_manager.get_scheduler.return_value = None
+    mock_context.scheduler_manager.has_scheduler.return_value = False
 
     await join_game_handler.handle(sid, data)
 
-    mock_context.scheduler_manager.get_scheduler.assert_called_once_with(game_id)
+    mock_context.scheduler_manager.has_scheduler.assert_called_once_with(game_id)
     mock_context.sio.emit.assert_awaited_once_with(
         GameEvent.ERROR.value,
         {"error": f"Game '{game_id}' is not currently active or does not exist."},
@@ -75,17 +72,14 @@ async def test_handle_game_not_found(
 
 
 @pytest.mark.asyncio
-async def test_handle_success(
-    join_game_handler: JoinGameHandler, mock_context: MagicMock
-) -> None:
+async def test_handle_success(join_game_handler: JoinGameHandler, mock_context: MagicMock) -> None:
     """Verify a successful join request and response."""
     sid = "test_sid"
     game_id = "active_game"
     data = {"game_id": game_id, "namespace": "/game"}
 
-    mock_scheduler = AsyncMock()
-    mock_scheduler.get_metadata.return_value = {"game_state": "ONGOING"}
-    mock_context.scheduler_manager.get_scheduler.return_value = mock_scheduler
+    mock_context.scheduler_manager.has_scheduler.return_value = True
+    mock_context.scheduler_manager.get_game_data.return_value = {"game_state": "ONGOING"}
 
     await join_game_handler.handle(sid, data)
 
@@ -96,12 +90,10 @@ async def test_handle_success(
     )
 
     # Verify client was added to room
-    mock_context.sio.enter_room.assert_awaited_once_with(
-        sid, game_id, namespace="/game"
-    )
+    mock_context.sio.enter_room.assert_awaited_once_with(sid, game_id, namespace="/game")
 
     # Verify response was sent
-    mock_scheduler.get_metadata.assert_awaited_once()
+    mock_context.scheduler_manager.get_game_data.assert_awaited_once_with(game_id)
     mock_context.sio.emit.assert_awaited_once_with(
         GameEvent.GAME_JOIN,
         {
@@ -114,20 +106,15 @@ async def test_handle_success(
 
 
 @pytest.mark.asyncio
-async def test_handle_invalid_config_channels(
-    join_game_handler: JoinGameHandler, mock_context: MagicMock
-) -> None:
+async def test_handle_invalid_config_channels(join_game_handler: JoinGameHandler, mock_context: MagicMock) -> None:
     """Verify fallback to default channels if config is invalid."""
     sid = "test_sid"
     game_id = "active_game"
     data = {"game_id": game_id, "namespace": "/game"}
 
-    mock_scheduler = AsyncMock()
-    mock_scheduler.get_metadata.return_value = {"game_state": "ONGOING"}
-    mock_context.scheduler_manager.get_scheduler.return_value = mock_scheduler
-    mock_context.config.set(
-        "broker", "relay_channels", "SCORES_UPDATE,INVALID_CHANNEL"
-    )
+    mock_context.scheduler_manager.has_scheduler.return_value = True
+    mock_context.scheduler_manager.get_game_data.return_value = {"game_state": "ONGOING"}
+    mock_context.config.set("broker", "relay_channels", "scores_update,INVALID_CHANNEL")
 
     await join_game_handler.handle(sid, data)
 
@@ -142,9 +129,7 @@ async def test_handle_invalid_config_channels(
 
 
 @pytest.mark.asyncio
-async def test_handle_enter_room_failure(
-    join_game_handler: JoinGameHandler, mock_context: MagicMock
-) -> None:
+async def test_handle_enter_room_failure(join_game_handler: JoinGameHandler, mock_context: MagicMock) -> None:
     """Verify error is emitted if entering the room fails."""
     sid = "test_sid"
     game_id = "active_game"
@@ -192,9 +177,7 @@ async def test_handle_enter_room_failure(
         ({"type": "invalid.event.type"}, None),
     ],
 )
-async def test_process_broker_message(
-    message: dict[str, Any], expected: tuple[GameEvent, dict[str, Any]]
-) -> None:
+async def test_process_broker_message(message: dict[str, Any], expected: tuple[GameEvent, dict[str, Any]]) -> None:
     """Test the broker message processor utility function."""
     result = await _process_broker_message(message)
     assert result == expected

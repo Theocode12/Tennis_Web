@@ -42,16 +42,12 @@ async def test_handle_unauthenticated_request(
 
     # Assert
     mock_context.auth.validate.assert_called_once_with("invalid_token")
-    mock_context.sio.emit.assert_awaited_once_with(
-        GameEvent.ERROR, {"error": "Unauthorized"}, to=sid
-    )
+    mock_context.sio.emit.assert_awaited_once_with(GameEvent.ERROR, {"error": "Unauthorized"}, to=sid)
     mock_context.broker.publish.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_handle_game_not_found(
-    game_control_handler: GameControlHandler, mock_context: MagicMock
-) -> None:
+async def test_handle_game_not_found(game_control_handler: GameControlHandler, mock_context: MagicMock) -> None:
     """Verify that a request for a non-existent game is rejected."""
     # Arrange
     mock_context.auth.validate.return_value = True
@@ -108,6 +104,4 @@ async def test_handle_success_publishes_control_message(
         "type": GameEvent.GAME_CONTROL_PAUSE,
         "namespace": namespace,
     }
-    mock_context.broker.publish.assert_awaited_once_with(
-        game_id, BrokerChannels.CONTROLS, expected_payload
-    )
+    mock_context.broker.publish.assert_awaited_once_with(game_id, BrokerChannels.CONTROLS, expected_payload)

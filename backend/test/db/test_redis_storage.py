@@ -38,9 +38,7 @@ async def test_live_get_client(
     storage = RedisStorage(valid_config, dummy_logger)
     await storage.connect()
     async with storage.get_client() as client:
-        assert isinstance(client, redis.Redis), (
-            "Expected client to be a redis.Redis instance"
-        )
+        assert isinstance(client, redis.Redis), "Expected client to be a redis.Redis instance"
     await storage.close()
 
 
@@ -69,9 +67,7 @@ async def test_connect_success(
 
 @pytest.mark.asyncio
 @patch("db.redis_storage.redis.Redis")
-@patch("db.redis_storage.redis.ConnectionPool.from_url")
 async def test_connect_failure_ping(
-    mock_connection_from_url: MagicMock,
     mock_redis: redis.Redis,
     valid_config: ConfigParser,
     dummy_logger: logging.Logger,
@@ -88,9 +84,7 @@ async def test_connect_failure_ping(
 
 @pytest.mark.asyncio
 @patch("db.redis_storage.redis.Redis")
-@patch("db.redis_storage.redis.ConnectionPool.from_url")
 async def test_connect_exception(
-    mock_connection_from_url: MagicMock,
     mock_redis: redis.Redis,
     valid_config: ConfigParser,
     dummy_logger: logging.Logger,
@@ -108,9 +102,7 @@ def test_get_client_without_connect(
     dummy_logger: logging.Logger,
 ) -> None:
     storage = RedisStorage(valid_config, dummy_logger)
-    with pytest.raises(
-        RuntimeError, match="Redis connection pool is not initialized"
-    ):
+    with pytest.raises(RuntimeError, match="Redis connection pool is not initialized"):
         storage.get_client()
 
 
@@ -131,9 +123,7 @@ def test_get_client_after_connect(
 
 
 @pytest.mark.asyncio
-@patch("db.redis_storage.redis.ConnectionPool")
 async def test_close_connection(
-    mock_connection_from_url: MagicMock,
     valid_config: ConfigParser,
     dummy_logger: logging.Logger,
 ) -> None:

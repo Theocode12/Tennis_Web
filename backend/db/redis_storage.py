@@ -7,7 +7,7 @@ import redis.asyncio as redis
 
 from app.shared.lib.singleton_metaclass import SingletonMeta
 from db.exceptions.redis_connection_error import RedisConnectionError
-from utils.logger import get_logger  # Adjust import path to fit your structure
+from utils.logger import get_logger
 
 
 class RedisStorageBase:
@@ -18,9 +18,7 @@ class RedisStorageBase:
     connection validation and optional logger support.
     """
 
-    def __init__(
-        self, config: configparser.ConfigParser, logger: Logger | None = None
-    ) -> None:
+    def __init__(self, config: configparser.ConfigParser, logger: Logger | None = None) -> None:
         """
         Initialize the Redis storage manager.
 
@@ -33,6 +31,15 @@ class RedisStorageBase:
         self.url = config.get("app", "redisUrl", fallback="redis://localhost")
         self.pool: redis.ConnectionPool | None = None
         self.logger = logger or get_logger(self.__class__.__name__)
+
+    def is_connected(self) -> bool:
+        """
+        Check if the Redis connection pool is initialized.
+
+        Returns:
+            bool: True if the pool is initialized, False otherwise.
+        """
+        return self.pool is not None
 
     async def connect(self) -> None:
         """
@@ -81,7 +88,6 @@ class RedisStorageBase:
             self.logger.error(error_msg)
             raise RuntimeError(error_msg)
 
-        self.logger.debug("Returning Redis client instance from pool.")
         return redis.Redis(connection_pool=self.pool)
 
     async def close(self) -> None:

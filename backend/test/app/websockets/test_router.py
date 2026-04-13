@@ -57,9 +57,7 @@ def test_register_route_success(router: Router) -> None:
     assert definition["schema"] is DummySchema
 
 
-def test_register_route_overwrite_logs_warning(
-    router: Router, mock_logger: MagicMock
-) -> None:
+def test_register_route_overwrite_logs_warning(router: Router, mock_logger: MagicMock) -> None:
     """Test that overwriting an existing route logs a warning."""
     event = GameEvent.GAME_JOIN
 

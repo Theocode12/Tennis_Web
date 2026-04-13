@@ -34,9 +34,7 @@ class MessageDispatcher:
         schema_cls = route.get("schema")
 
         try:
-            validated_data = (
-                data if schema_cls is None else schema_cls(**data).model_dump()
-            )
+            validated_data = data if schema_cls is None else schema_cls(**data).model_dump()
         except ValidationError as e:
             raise MessageError("Invalid data schema.") from e
 

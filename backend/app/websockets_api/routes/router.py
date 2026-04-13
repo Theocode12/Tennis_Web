@@ -27,9 +27,7 @@ class Router:
         schema: type[BaseModel] | None = None,
     ) -> None:
         if event_type in self.routes:
-            self.logger.warning(
-                f"Router: Overwriting route for message type '{event_type}'"
-            )
+            self.logger.warning(f"Router: Overwriting route for message type '{event_type}'")
         self.routes[event_type] = {"handler": handler, "schema": schema}
 
     def load_routes(self) -> None:
@@ -41,8 +39,6 @@ class Router:
     def get_definition(self, event_type: GameEvent) -> RouteDefinition | None:
         """Get the route definition for a given event type."""
         if event_type not in self.routes:
-            self.logger.warning(
-                f"Router: No route found for message type '{event_type}'"
-            )
+            self.logger.warning(f"Router: No route found for message type '{event_type}'")
             return None
         return self.routes.get(event_type)

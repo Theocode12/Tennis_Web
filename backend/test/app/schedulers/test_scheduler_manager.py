@@ -18,11 +18,18 @@ class DummyFeeder:
 
 
 class DummyScheduler:
-    def __init__(self, game_id: str, broker: MagicMock, feeder: DummyFeeder) -> None:
+    def __init__(
+        self,
+        game_id: str,
+        broker: MagicMock,
+        feeder: DummyFeeder,
+        state_publisher: MagicMock,
+    ) -> None:
         self.game_id = game_id
         self.broker = broker
         self.feeder = feeder
         self._stop_event = asyncio.Event()
+        self.state_publisher = state_publisher
 
     async def run(self) -> None:
         await self._stop_event.wait()
@@ -40,19 +47,13 @@ def broker() -> MagicMock:
 
 
 @pytest.fixture
-def scheduler_manager(
-    broker: MagicMock, valid_config: ConfigParser, dummy_logger: logging.Logger
-) -> SchedulerManager:
+def scheduler_manager(broker: MagicMock, valid_config: ConfigParser, dummy_logger: logging.Logger) -> SchedulerManager:
     return SchedulerManager(broker, config=valid_config, logger=dummy_logger)
 
 
 @pytest.mark.asyncio
-async def test_shutdown_all(
-    monkeypatch: MonkeyPatch, scheduler_manager: SchedulerManager
-) -> None:
-    monkeypatch.setattr(
-        "app.scheduler.manager.create_game_feeder", lambda *a, **kw: DummyFeeder()
-    )
+async def test_shutdown_all(monkeypatch: MonkeyPatch, scheduler_manager: SchedulerManager) -> None:
+    monkeypatch.setattr("app.scheduler.manager.create_game_feeder", lambda *a, **kw: DummyFeeder())
     monkeypatch.setattr("app.scheduler.manager.GameScheduler", DummyScheduler)
 
     await scheduler_manager.create_or_get_scheduler("game-a")
@@ -69,9 +70,7 @@ async def test_create_and_get_scheduler(
     monkeypatch: MonkeyPatch,
     scheduler_manager: SchedulerManager,
 ) -> None:
-    monkeypatch.setattr(
-        "app.scheduler.manager.create_game_feeder", lambda *a, **kw: DummyFeeder()
-    )
+    monkeypatch.setattr("app.scheduler.manager.create_game_feeder", lambda *a, **kw: DummyFeeder())
     monkeypatch.setattr("app.scheduler.manager.GameScheduler", DummyScheduler)
 
     game_id = "game-1"
@@ -89,12 +88,8 @@ async def test_create_and_get_scheduler(
 
 
 @pytest.mark.asyncio
-async def test_scheduler_reuse(
-    monkeypatch: MonkeyPatch, scheduler_manager: SchedulerManager
-) -> None:
-    monkeypatch.setattr(
-        "app.scheduler.manager.create_game_feeder", lambda *a, **kw: DummyFeeder()
-    )
+async def test_scheduler_reuse(monkeypatch: MonkeyPatch, scheduler_manager: SchedulerManager) -> None:
+    monkeypatch.setattr("app.scheduler.manager.create_game_feeder", lambda *a, **kw: DummyFeeder())
     monkeypatch.setattr("app.scheduler.manager.GameScheduler", DummyScheduler)
 
     game_id = "game-2"
@@ -113,12 +108,8 @@ async def test_scheduler_reuse(
 
 
 @pytest.mark.asyncio
-async def test_get_game_data(
-    monkeypatch: MonkeyPatch, scheduler_manager: SchedulerManager
-) -> None:
-    monkeypatch.setattr(
-        "app.scheduler.manager.create_game_feeder", lambda *a, **kw: DummyFeeder()
-    )
+async def test_get_game_data(monkeypatch: MonkeyPatch, scheduler_manager: SchedulerManager) -> None:
+    monkeypatch.setattr("app.scheduler.manager.create_game_feeder", lambda *a, **kw: DummyFeeder())
     monkeypatch.setattr("app.scheduler.manager.GameScheduler", DummyScheduler)
 
     game_id = "game-3"
@@ -135,12 +126,8 @@ async def test_get_game_data(
 
 
 @pytest.mark.asyncio
-async def test_cleanup_scheduler(
-    monkeypatch: MonkeyPatch, scheduler_manager: SchedulerManager
-) -> None:
-    monkeypatch.setattr(
-        "app.scheduler.manager.create_game_feeder", lambda *a, **kw: DummyFeeder()
-    )
+async def test_cleanup_scheduler(monkeypatch: MonkeyPatch, scheduler_manager: SchedulerManager) -> None:
+    monkeypatch.setattr("app.scheduler.manager.create_game_feeder", lambda *a, **kw: DummyFeeder())
     monkeypatch.setattr("app.scheduler.manager.GameScheduler", DummyScheduler)
 
     game_id = "game-4"

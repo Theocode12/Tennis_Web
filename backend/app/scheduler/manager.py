@@ -9,8 +9,13 @@ from app.broker.message_broker import MessageBroker
 from app.scheduler.game_feeder import BaseGameFeeder
 from app.scheduler.game_feeder_factory import create_game_feeder
 from app.scheduler.scheduler import BaseScheduler, GameScheduler
+from db.redis_storage import RedisStorageSingleton as RedisStorage
 from utils.load_config import load_config
 from utils.logger import get_logger
+
+from .game_state_key_builder import GameStateKeyBuilder
+from .redis_state_publisher import RedisSchedulerStatePublisher
+from .state_publisher import SchedulerStatePublisher
 
 
 class SchedulerManager:
@@ -70,6 +75,27 @@ class SchedulerManager:
         """
         return create_game_feeder(game_id, self.config, self.logger)
 
+    async def _create_state_publisher(self) -> SchedulerStatePublisher | None:
+        if not self.config.getboolean("liveGameRegistry", "enabled", fallback=False):
+            return None
+
+        prefix = self.config.get(
+            "liveGameRegistry",
+            "redisKeyPrefix",
+            fallback="live:game",
+        )
+
+        ttl = self.config.getint("liveGameRegistry", "ttlSeconds", fallback=30)
+
+        key_builder = GameStateKeyBuilder(prefix)
+
+        return RedisSchedulerStatePublisher(
+            storage=RedisStorage(self.config, self.logger),
+            key_builder=key_builder,
+            ttl_seconds=ttl,
+            logger=self.logger,
+        )
+
     def get_scheduler(self, game_id: str) -> BaseScheduler | None:
         """
         Retrieve the active scheduler instance for a specific game.
@@ -101,9 +127,7 @@ class SchedulerManager:
             return await scheduler.get_metadata()
         return None
 
-    async def create_or_get_scheduler(
-        self, game_id: str
-    ) -> tuple[BaseScheduler, asyncio.Task[None]]:
+    async def create_or_get_scheduler(self, game_id: str) -> tuple[BaseScheduler, asyncio.Task[None]]:
         """
         Create and start a scheduler for the given game if not already running.
 
@@ -119,38 +143,34 @@ class SchedulerManager:
         """
         async with self._lock:
             if game_id in self._scheduler_tasks:
-                self.logger.info(
-                    f"Scheduler already exists for game {game_id}. "
-                    "Returning existing."
-                )
+                self.logger.info(f"Scheduler already exists for game {game_id}. Returning existing.")
                 return self._schedulers[game_id], self._scheduler_tasks[game_id]
 
             try:
                 self.logger.info(f"Creating new scheduler for game {game_id}...")
 
                 feeder = self._create_feeder(game_id)
+                state_publisher = await self._create_state_publisher()
 
                 scheduler = GameScheduler(
-                    game_id=game_id, broker=self._broker, feeder=feeder
+                    game_id=game_id,
+                    broker=self._broker,
+                    feeder=feeder,
+                    state_publisher=state_publisher,
                 )
-                task = asyncio.create_task(
-                    scheduler.run(), name=f"scheduler_run_{game_id}"
-                )
+
+                task = asyncio.create_task(scheduler.run(), name=f"scheduler_run_{game_id}")
 
                 self._schedulers[game_id] = scheduler
                 self._scheduler_tasks[game_id] = task
 
                 task.add_done_callback(self._handle_task_completion)
 
-                self.logger.info(
-                    f"Scheduler for game {game_id} created and running."
-                )
+                self.logger.info(f"Scheduler for game {game_id} created and running.")
                 return scheduler, task
 
             except Exception as e:
-                self.logger.error(
-                    f"Failed to create scheduler for {game_id}: {e}", exc_info=True
-                )
+                self.logger.error(f"Failed to create scheduler for {game_id}: {e}", exc_info=True)
                 self._schedulers.pop(game_id, None)
                 self._scheduler_tasks.pop(game_id, None)
                 raise RuntimeError(f"Scheduler creation failed for {game_id}") from e
@@ -184,9 +204,7 @@ class SchedulerManager:
             cleanup.add_done_callback(self._background_tasks.discard)
 
         except Exception as e:
-            self.logger.error(
-                f"Error in _handle_task_completion: {e}", exc_info=True
-            )
+            self.logger.error(f"Error in _handle_task_completion: {e}", exc_info=True)
 
     async def cleanup_scheduler(self, game_id: str) -> None:
         """
@@ -213,9 +231,7 @@ class SchedulerManager:
             except asyncio.TimeoutError:
                 self.logger.warning(f"Timeout while cancelling task for {game_id}.")
             except Exception as e:
-                self.logger.error(
-                    f"Error during task cancellation: {e}", exc_info=True
-                )
+                self.logger.error(f"Error during task cancellation: {e}", exc_info=True)
         self.logger.info(f"Scheduler cleanup for game {game_id} complete.")
 
     async def shutdown(self) -> None:
@@ -245,12 +261,8 @@ class SchedulerManager:
             await asyncio.gather(*cleanup_tasks, return_exceptions=True)
 
             if self._schedulers or self._scheduler_tasks:
-                self.logger.warning(
-                    f"Remaining schedulers: {list(self._schedulers.keys())}"
-                )
-                self.logger.warning(
-                    f"Remaining tasks: {list(self._scheduler_tasks.keys())}"
-                )
+                self.logger.warning(f"Remaining schedulers: {list(self._schedulers.keys())}")
+                self.logger.warning(f"Remaining tasks: {list(self._scheduler_tasks.keys())}")
             else:
                 self.logger.info("All schedulers shut down cleanly.")
 

@@ -30,9 +30,7 @@ def config_redis_feeder() -> ConfigParser:
     return config
 
 
-def test_create_file_feeder_with_storage(
-    config_file_feeder: ConfigParser, dummy_logger: logging.Logger
-) -> None:
+def test_create_file_feeder_with_storage(config_file_feeder: ConfigParser, dummy_logger: logging.Logger) -> None:
     mock_storage = MagicMock(spec=FileStorage)
     feeder = create_game_feeder(
         game_id=TEST_GAME_ID,
@@ -44,9 +42,7 @@ def test_create_file_feeder_with_storage(
     assert feeder.game_id == TEST_GAME_ID
 
 
-def test_create_redis_feeder_with_storage(
-    config_redis_feeder: ConfigParser, dummy_logger: logging.Logger
-) -> None:
+def test_create_redis_feeder_with_storage(config_redis_feeder: ConfigParser, dummy_logger: logging.Logger) -> None:
     mock_storage = MagicMock(spec=RedisStorage)
     feeder = create_game_feeder(
         game_id=TEST_GAME_ID,
@@ -65,9 +61,7 @@ def test_create_file_feeder_without_storage(
     from app.scheduler import game_feeder_factory
 
     mock_file_storage = MagicMock()
-    monkeypatch.setattr(
-        game_feeder_factory, "FileStorage", lambda *a, **kw: mock_file_storage
-    )
+    monkeypatch.setattr(game_feeder_factory, "FileStorage", lambda *a, **kw: mock_file_storage)
 
     feeder = game_feeder_factory.create_game_feeder(TEST_GAME_ID, config_file_feeder)
     assert isinstance(feeder, FileGameFeeder)
@@ -80,13 +74,9 @@ def test_create_redis_feeder_without_storage(
     from app.scheduler import game_feeder_factory
 
     mock_redis_storage = MagicMock()
-    monkeypatch.setattr(
-        game_feeder_factory, "RedisStorage", lambda *a, **kw: mock_redis_storage
-    )
+    monkeypatch.setattr(game_feeder_factory, "RedisStorage", lambda *a, **kw: mock_redis_storage)
 
-    feeder = game_feeder_factory.create_game_feeder(
-        TEST_GAME_ID, config_redis_feeder
-    )
+    feeder = game_feeder_factory.create_game_feeder(TEST_GAME_ID, config_redis_feeder)
     assert isinstance(feeder, RedisGameFeeder)
 
 
@@ -105,7 +95,5 @@ def test_create_feeder_raises_on_config_exception(
     config = MagicMock(spec=ConfigParser)
     config.get.side_effect = Exception("boom")
 
-    with pytest.raises(
-        RuntimeError, match="Failed to retrieve feeder type from config"
-    ):
+    with pytest.raises(RuntimeError, match="Failed to retrieve feeder type from config"):
         create_game_feeder(TEST_GAME_ID, config, dummy_logger)

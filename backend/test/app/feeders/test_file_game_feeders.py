@@ -49,9 +49,7 @@ def file_game_feeder(
         json.dump(TEST_GAME_DATA, f)
 
     storage = FileStorage(valid_config, dummy_logger)
-    feeder = FileGameFeeder(
-        game_id=TEST_GAME_ID, storage=storage, logger=dummy_logger
-    )
+    feeder = FileGameFeeder(game_id=TEST_GAME_ID, storage=storage, logger=dummy_logger)
     return feeder
 
 
@@ -122,9 +120,7 @@ async def test_load_batch_file_not_found(
 
     storage = FileStorage(valid_config, dummy_logger)
     missing_game_id = "game_not_found_404"
-    feeder = FileGameFeeder(
-        game_id=missing_game_id, storage=storage, logger=dummy_logger
-    )
+    feeder = FileGameFeeder(game_id=missing_game_id, storage=storage, logger=dummy_logger)
 
     assert not feeder.file_path.exists()
 
