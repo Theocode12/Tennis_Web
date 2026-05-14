@@ -20,6 +20,7 @@ runs:
     - name: Install project dependencies
       run: |
         pip install -e .[dev]
+        cp config.ini.example config.ini
       shell: bash
 
     - name: Pytest
