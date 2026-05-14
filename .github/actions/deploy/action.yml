@@ -1,0 +1,260 @@
+name: Deploy FastAPI App to VPS
+description: Deploys a FastAPI application via SSH with rollback support
+
+inputs:
+  ssh_host:
+    required: true
+    description: "Public IP or hostname of the VPS"
+
+  ssh_user:
+    required: true
+    description: "The SSH username (e.g. devval, ubuntu)"
+
+  deploy_key:
+    required: true
+    description: "Private SSH key used for deployment"
+
+  branch:
+    required: false
+    default: "main"
+    description: "Git branch to deploy"
+
+  app_dir:
+    required: true
+    description: "Absolute path to the app directory (e.g. /opt/apps/mimo)"
+
+  service_name:
+    required: true
+    description: "systemd service name (e.g. mimo)"
+
+  celery_service_name:
+    required: true
+    description: "systemd celery service name (e.g. mimo-celery)"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up SSH
+      shell: bash
+      run: |
+        set -e
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+
+        echo "${{ inputs.deploy_key }}" > ~/.ssh/id_ed25519
+        chmod 600 ~/.ssh/id_ed25519
+
+        ssh-keyscan -H "${{ inputs.ssh_host }}" >> ~/.ssh/known_hosts
+        chmod 644 ~/.ssh/known_hosts
+
+    - name: Deploy application
+      shell: bash
+      run: |
+        set -e
+
+        ssh \
+          -i ~/.ssh/id_ed25519 \
+          -o StrictHostKeyChecking=yes \
+          -o BatchMode=yes \
+          "${{ inputs.ssh_user }}@${{ inputs.ssh_host }}" << EOF
+          set -e
+
+          APP_DIR="${{ inputs.app_dir }}"
+          SERVICE="${{ inputs.service_name }}"
+          CELERY_SERVICE="${{ inputs.celery_service_name }}"
+          VENV="\$APP_DIR/.venv"
+          SOCKET="/run/\$SERVICE/\$SERVICE.sock"
+
+          cd "\$APP_DIR"
+
+          echo "Fetching latest code..."
+          git fetch origin
+
+          echo "Checking out branch: ${{ inputs.branch }}"
+          git checkout ${{ inputs.branch }}
+
+          echo "Recording current commit..."
+          PREVIOUS_COMMIT=\$(git rev-parse HEAD)
+          echo "Previous commit: \$PREVIOUS_COMMIT"
+
+          echo "Pulling latest changes..."
+          git pull origin ${{ inputs.branch }}
+
+          echo "Installing dependencies..."
+          "\$VENV/bin/pip" install --upgrade pip
+          "\$VENV/bin/pip" install -e .
+
+          echo "Restarting service: \$SERVICE"
+          sudo systemctl restart "\$SERVICE"
+          sleep 2
+
+          echo "Restarting celery service: \$CELERY_SERVICE"
+          sudo systemctl restart "\$CELERY_SERVICE"
+          sleep 2
+
+          echo "Checking service health..."
+          if curl --silent --fail --show-error \
+              --unix-socket "\$SOCKET" \
+              http://localhost/health; then
+            echo "Health check passed. Deployment successful."
+          else
+            echo "Health check FAILED. Rolling back..."
+
+            git reset --hard "\$PREVIOUS_COMMIT"
+
+            echo "Re-installing dependencies after rollback..."
+            "\$VENV/bin/pip" install -e .
+
+            echo "Restarting service with previous version..."
+            sudo systemctl restart "\$SERVICE"
+
+            echo "Rollback completed. Service restored."
+            exit 1
+          fi
+        EOF
+
+    - name: Deploy application
+      shell: bash
+      run: |
+        set -Eeuo pipefail
+
+        ssh \
+          -i ~/.ssh/id_ed25519 \
+          -o StrictHostKeyChecking=yes \
+          -o BatchMode=yes \
+          "${{ inputs.ssh_user }}@${{ inputs.ssh_host }}" << 'EOF'
+
+          set -Eeuo pipefail
+
+          APP_DIR="${{ inputs.app_dir }}"
+          SERVICE="${{ inputs.service_name }}"
+          CELERY_SERVICE="${{ inputs.celery_service_name }}"
+
+          VENV="$APP_DIR/.venv"
+          SOCKET="/run/$SERVICE/$SERVICE.sock"
+
+          SERVICE_FILE="$SERVICE.service"
+          CELERY_FILE="$CELERY_SERVICE.service"
+
+          SYSTEMD_DIR="/etc/systemd/system"
+
+          DEPLOY_SYSTEMD_DIR="$APP_DIR/deploy/systemd"
+
+          BACKUP_DIR="/tmp/deploy-backup-$SERVICE"
+
+          mkdir -p "$BACKUP_DIR"
+
+          cd "$APP_DIR"
+
+          echo "Fetching latest code..."
+          git fetch origin
+
+          echo "Recording current commit..."
+          PREVIOUS_COMMIT=$(git rev-parse HEAD)
+
+          echo "Current commit: $PREVIOUS_COMMIT"
+
+          echo "Resetting to remote branch..."
+          git reset --hard "origin/${{ inputs.branch }}"
+
+          rollback() {
+            echo ""
+            echo "======================================"
+            echo "ROLLBACK INITIATED"
+            echo "======================================"
+
+            echo "Restoring previous git commit..."
+            git reset --hard "$PREVIOUS_COMMIT"
+
+            echo "Re-installing previous dependencies..."
+            "$VENV/bin/pip" install -e .
+
+            echo "Restoring systemd service files..."
+
+            if [ -f "$BACKUP_DIR/$SERVICE_FILE" ]; then
+              sudo cp \
+                "$BACKUP_DIR/$SERVICE_FILE" \
+                "$SYSTEMD_DIR/$SERVICE_FILE"
+            fi
+
+            if [ -f "$BACKUP_DIR/$CELERY_FILE" ]; then
+              sudo cp \
+                "$BACKUP_DIR/$CELERY_FILE" \
+                "$SYSTEMD_DIR/$CELERY_FILE"
+            fi
+
+            echo "Reloading systemd..."
+            sudo systemctl daemon-reload
+
+            echo "Restarting application services..."
+
+            sudo systemctl restart "$SERVICE"
+
+            if systemctl list-unit-files | grep -q "^$CELERY_FILE"; then
+              sudo systemctl restart "$CELERY_SERVICE"
+            fi
+
+            echo "Rollback completed."
+          }
+
+          trap 'rollback' ERR
+
+          echo "Backing up current systemd service files..."
+
+          if [ -f "$SYSTEMD_DIR/$SERVICE_FILE" ]; then
+            sudo cp \
+              "$SYSTEMD_DIR/$SERVICE_FILE" \
+              "$BACKUP_DIR/$SERVICE_FILE"
+          fi
+
+          if [ -f "$SYSTEMD_DIR/$CELERY_FILE" ]; then
+            sudo cp \
+              "$SYSTEMD_DIR/$CELERY_FILE" \
+              "$BACKUP_DIR/$CELERY_FILE"
+          fi
+
+          echo "Deploying updated systemd service files..."
+
+          
+          sudo cp \
+            "$DEPLOY_SYSTEMD_DIR/$SERVICE_FILE" \
+            "$SYSTEMD_DIR/$SERVICE_FILE"
+          
+
+          sudo cp \
+            "$DEPLOY_SYSTEMD_DIR/$CELERY_FILE" \
+            "$SYSTEMD_DIR/$CELERY_FILE"
+
+          echo "Reloading systemd daemon..."
+          sudo systemctl daemon-reload
+
+          echo "Installing dependencies..."
+          "$VENV/bin/pip" install --upgrade pip
+          "$VENV/bin/pip" install -e .
+
+          echo "Restarting API service..."
+          sudo systemctl restart "$SERVICE"
+
+          echo "Restarting Celery service..."
+          if systemctl list-unit-files | grep -q "^$CELERY_FILE"; then
+            sudo systemctl restart "$CELERY_SERVICE"
+          fi
+
+          sleep 3
+
+          echo "Running health check..."
+
+          curl \
+            --silent \
+            --fail \
+            --show-error \
+            --unix-socket "$SOCKET" \
+            http://localhost/health
+
+          echo ""
+          echo "======================================"
+          echo "DEPLOYMENT SUCCESSFUL"
+          echo "======================================"
+
+          trap - ERR
+        EOF

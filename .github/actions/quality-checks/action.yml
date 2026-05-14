@@ -1,0 +1,27 @@
+name: Quality Checks
+description: Run ruff, mypy, pytest
+
+runs:
+  using: composite
+  steps:
+    - name: Install tooling
+      run: |
+        pip install ruff mypy pytest
+      shell: bash
+
+    - name: Ruff lint
+      run: ruff check .
+      shell: bash
+
+    - name: Ruff format check
+      run: ruff format --check .
+      shell: bash
+
+    - name: Install project dependencies
+      run: |
+        pip install -e .[dev]
+      shell: bash
+
+    - name: Pytest
+      run: pytest
+      shell: bash

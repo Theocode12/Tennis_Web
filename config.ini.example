@@ -1,0 +1,79 @@
+[app]
+# Feeder can be 'file' or 'redis'
+gameFeeder = redis
+
+# For file
+gameDataDir = data/games
+gameFileExt = .json
+
+# For redis
+redisUrl =
+redisHost =
+redisPort =
+
+# Broker can be 'memory' or 'redis'
+messageBroker = memory
+
+# For Game (float)
+defaultGameSpeed = 1.0
+pauseTimeoutSecs = 60
+
+# SocketIo # change to redis later
+socketClientManager = manager
+
+[logging]
+enabled = true
+
+# Log levels include: debug, info, warning, error, critical
+level = debug
+
+# Format settings
+logFormat = %(asctime)s [%(levelname)s] %(message)s
+dateFormat = %Y-%m-%dT%H:%M:%S
+
+# Console logging
+consoleLogs = True
+
+# File logging
+serverLogs = True
+
+# File to keep logs (e.g., logs/server.log)
+serverLogFile = logs/server.log
+
+# Maximum file size for logs (10 MB)
+maxFileSize = 10485760
+
+# Number of backup log files to retain
+backupCount = 5
+
+[liveGameRegistry]
+enabled = true
+# for adding games to registry
+redisKeyPrefix = live:game
+# for retrieving games from registry
+redisKeyPattern = live:game:*
+ttlSeconds = 30
+scanBatchSize = 20
+visibleStates = ongoing
+
+[broker]
+relay_channels = scores_update,controls
+
+[celery]
+BrokerUrl =
+BackendUrl =
+
+[background]
+StreamKey = background:game:commands
+ConsumerGroup = fastapi-consumers
+redisHost =
+redisPort =
+
+TournamentTickSeconds = 200
+TournamentStateTTL = 43200
+StreamMaxLength = 1000
+
+[media]
+root_dir = static/media
+upload_dir = tmp_uploads
+music_store_path = db/data/music.json
