@@ -39,7 +39,7 @@ dependencies = [
     "watchfiles==1.0.5",
     "websockets==15.0.1",
     "wsproto==1.2.0",
-    "GameEngine @ git+ssh://git@github.com/Theocode12/GameEngine.git@v0.4.1",
+    "GameEngine @ git+https://github.com/Theocode12/GameEngine.git@v0.4.1",
     "python-slugify (>=8.0.4,<9.0.0)",
     "dotenv==0.9.9",
     "ffmpeg-python==0.2.0",
