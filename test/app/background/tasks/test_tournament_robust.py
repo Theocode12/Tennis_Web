@@ -219,7 +219,7 @@ async def test_full_tournament_progression(mock_dependencies):
 
     # Let's patch _run_match to be more robust
     async def mock_run_match(match_id, runner):
-        p1, p2 = tournament.match_players[match_id]
+        p1, _ = tournament.match_players[match_id]
         await asyncio.sleep(0)
         return match_id, p1  # First player always wins
 

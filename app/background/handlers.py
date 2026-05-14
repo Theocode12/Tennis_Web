@@ -45,7 +45,7 @@ async def handle_start_stream(app: FastAPI, payload: dict) -> None:
         source="tournament_engine",
     )
 
-    scheduler, task = await scheduler_manager.create_or_get_scheduler(context)
+    scheduler, _ = await scheduler_manager.create_or_get_scheduler(context)
     await scheduler.start()
 
 
