@@ -2,18 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import configparser
-from dataclasses import dataclass
 import logging
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Any
 
 from app.broker.message_broker import MessageBroker
 from app.scheduler.game_feeder import BaseGameFeeder
 from app.scheduler.game_feeder_factory import create_game_feeder
 from app.scheduler.scheduler import BaseScheduler, GameScheduler
 from db.redis_storage import RedisStorageSingleton as RedisStorage
+from utils.get_db_client import get_redis_client
 from utils.load_config import load_config
 from utils.logger import get_logger
-from utils.get_db_client import get_redis_client
 
 from .game_state_key_builder import GameStateKeyBuilder
 from .redis_state_publisher import RedisSchedulerStatePublisher

@@ -4,6 +4,7 @@ import json
 from datetime import date
 from pathlib import Path
 from typing import Any
+
 from slugify import slugify
 
 from app.config.seeding import apply_seeding

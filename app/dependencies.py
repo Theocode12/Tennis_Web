@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated
 
 import redis.asyncio as redis
-from fastapi import Depends, HTTPException, Header
+from fastapi import Depends, Header, HTTPException
 
 from app.infra.music_file_store import MusicFileStore
 from app.infra.music_redis_store import MusicRedisStore

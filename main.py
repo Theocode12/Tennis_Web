@@ -5,11 +5,11 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-load_dotenv()
-
 from app.api.v1.router import router as v1_router
 from app.core.bootstrap import lifespan
 from app.core.cors import setup_cors
+
+load_dotenv()
 
 sio = socketio.AsyncServer(
     async_mode="asgi",
