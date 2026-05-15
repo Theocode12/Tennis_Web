@@ -173,9 +173,7 @@ runs:
           sudo systemctl restart "$SERVICE"
 
           echo "Restarting Celery service..."
-          if sudo systemctl list-unit-files | grep -q "^$CELERY_FILE"; then
-            sudo systemctl restart "$CELERY_SERVICE"
-          fi
+          sudo systemctl restart "$CELERY_SERVICE"
 
           sleep 3
 
