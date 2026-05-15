@@ -1,0 +1,68 @@
+{
+  "songs": [
+    {
+      "id": "9145dd37-da27-4555-ac97-a56727ba15e6",
+      "title": "Beat it",
+      "artist": "Micheal Jackson",
+      "status": "ready"
+    },
+    {
+      "id": "28c585d7-b9ee-4a8d-91bd-d170949006c4",
+      "title": "Black or white",
+      "artist": "Micheal Jackson",
+      "status": "ready"
+    },
+    {
+      "id": "6266939e-5dc1-4ae0-be7c-94640c6f15ed",
+      "title": "Earth song",
+      "artist": "Micheal Jackson",
+      "status": "ready"
+    },
+    {
+      "id": "2d2c844c-3972-4f05-bf77-6a23b50cfb49",
+      "title": "Human Nature",
+      "artist": "Micheal Jackson",
+      "status": "ready"
+    },
+    {
+      "id": "97db0f45-c636-425c-b8ec-98b9d3b0246b",
+      "title": "Man In The Mirror",
+      "artist": "Micheal Jackson",
+      "status": "ready"
+    },
+    {
+      "id": "56df0b19-83a8-43bb-89b8-274f3206ff22",
+      "title": "They Don't Care About Us",
+      "artist": "Micheal Jackson",
+      "status": "ready"
+    },
+    {
+      "id": "cb4795f4-771e-4e8a-8494-cbfdeaaa9fcc",
+      "title": "Wanna be Startin' Something",
+      "artist": "Micheal Jackson",
+      "status": "ready"
+    },
+    {
+      "id": "7be65082-d400-4b0e-a90d-ef40126034e9",
+      "title": "Smooth Criminal",
+      "artist": "Micheal Jackson",
+      "status": "ready"
+    }
+  ],
+  "playlists": [
+    {
+      "id": "13ac7f6b-75a9-45bb-b3dd-94469781e22f",
+      "name": "mj",
+      "songs": [
+        "9145dd37-da27-4555-ac97-a56727ba15e6",
+        "28c585d7-b9ee-4a8d-91bd-d170949006c4",
+        "6266939e-5dc1-4ae0-be7c-94640c6f15ed",
+        "2d2c844c-3972-4f05-bf77-6a23b50cfb49",
+        "97db0f45-c636-425c-b8ec-98b9d3b0246b",
+        "56df0b19-83a8-43bb-89b8-274f3206ff22",
+        "cb4795f4-771e-4e8a-8494-cbfdeaaa9fcc",
+        "7be65082-d400-4b0e-a90d-ef40126034e9"
+      ]
+    }
+  ]
+}

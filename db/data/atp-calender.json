@@ -1,0 +1,254 @@
+{
+    "season": 2026,
+    "tour": "ATP Tour",
+    "events": [
+        {
+            "tournament_name": "United Cup",
+            "category": "Teams",
+            "surface": "Hard",
+            "draws": 18,
+            "start_date": "2026-01-02",
+            "end_date": "2026-01-08"
+        },
+        {
+            "tournament_name": "Brisbane International",
+            "category": "ATP 250",
+            "surface": "Hard",
+            "draws": 32,
+            "start_date": "2026-01-05",
+            "end_date": "2026-01-11"
+        },
+        {
+            "tournament_name": "Hong Kong Tennis Open",
+            "category": "ATP 250",
+            "surface": "Hard",
+            "draws": 28,
+            "start_date": "2026-01-05",
+            "end_date": "2026-01-11"
+        },
+        {
+            "tournament_name": "Adelaide International",
+            "category": "ATP 250",
+            "surface": "Hard",
+            "draws": 28,
+            "start_date": "2026-01-12",
+            "end_date": "2026-01-18"
+        },
+        {
+            "tournament_name": "Australian Open",
+            "category": "Grand Slam",
+            "surface": "Hard",
+            "draws": 128,
+            "start_date": "2026-01-18",
+            "end_date": "2026-01-31"
+        },
+        {
+            "tournament_name": "Open Occitanie",
+            "category": "ATP 250",
+            "surface": "Indoor Hard",
+            "draws": 28,
+            "start_date": "2026-02-02",
+            "end_date": "2026-02-08"
+        },
+        {
+            "tournament_name": "Dallas Open",
+            "category": "ATP 500",
+            "surface": "Indoor Hard",
+            "draws": 32,
+            "start_date": "2026-02-09",
+            "end_date": "2026-02-15"
+        },
+        {
+            "tournament_name": "ABN AMRO Open",
+            "category": "ATP 500",
+            "surface": "Indoor Hard",
+            "draws": 32,
+            "start_date": "2026-02-09",
+            "end_date": "2026-02-15"
+        },
+        {
+            "tournament_name": "Qatar ExxonMobil Open",
+            "category": "ATP 500",
+            "surface": "Hard",
+            "draws": 32,
+            "start_date": "2026-02-16",
+            "end_date": "2026-02-22"
+        },
+        {
+            "tournament_name": "Rio Open",
+            "category": "ATP 500",
+            "surface": "Clay",
+            "draws": 32,
+            "start_date": "2026-02-16",
+            "end_date": "2026-02-22"
+        },
+        {
+            "tournament_name": "Dubai Tennis Championships",
+            "category": "ATP 500",
+            "surface": "Hard",
+            "draws": 32,
+            "start_date": "2026-02-23",
+            "end_date": "2026-03-01"
+        },
+        {
+            "tournament_name": "Acapulco",
+            "category": "ATP 500",
+            "surface": "Hard",
+            "draws": 32,
+            "start_date": "2026-02-23",
+            "end_date": "2026-03-01"
+        },
+        {
+            "tournament_name": "BNP Paribas Open",
+            "category": "ATP Masters 1000",
+            "surface": "Hard",
+            "draws": 96,
+            "start_date": "2026-03-04",
+            "end_date": "2026-03-15"
+        },
+        {
+            "tournament_name": "Miami Open",
+            "category": "ATP Masters 1000",
+            "surface": "Hard",
+            "draws": 96,
+            "start_date": "2026-03-18",
+            "end_date": "2026-03-29"
+        },
+        {
+            "tournament_name": "Grand Prix Hassan II",
+            "category": "ATP 250",
+            "surface": "Clay",
+            "draws": 28,
+            "start_date": "2026-03-30",
+            "end_date": "2026-04-05"
+        },
+        {
+            "tournament_name": "Tiriac Open",
+            "category": "ATP 250",
+            "surface": "Clay",
+            "draws": 28,
+            "start_date": "2026-03-30",
+            "end_date": "2026-04-05"
+        },
+        {
+            "tournament_name": "US Men's Clay Court Championship",
+            "category": "ATP 250",
+            "surface": "Clay",
+            "draws": 28,
+            "start_date": "2026-03-30",
+            "end_date": "2026-04-05"
+        },
+        {
+            "tournament_name": "Monte-Carlo Masters",
+            "category": "ATP Masters 1000",
+            "surface": "Clay",
+            "draws": 56,
+            "start_date": "2026-04-05",
+            "end_date": "2026-04-12"
+        },
+        {
+            "tournament_name": "Barcelona Open",
+            "category": "ATP 500",
+            "surface": "Clay",
+            "draws": 32,
+            "start_date": "2026-04-13",
+            "end_date": "2026-04-19"
+        },
+        {
+            "tournament_name": "BMW Open (Munich)",
+            "category": "ATP 500",
+            "surface": "Clay",
+            "draws": 32,
+            "start_date": "2026-04-13",
+            "end_date": "2026-04-19"
+        },
+        {
+            "tournament_name": "Madrid Open",
+            "category": "ATP Masters 1000",
+            "surface": "Clay",
+            "draws": 96,
+            "start_date": "2026-04-22",
+            "end_date": "2026-05-03"
+        },
+        {
+            "tournament_name": "Italian Open",
+            "category": "ATP Masters 1000",
+            "surface": "Clay",
+            "draws": 96,
+            "start_date": "2026-05-06",
+            "end_date": "2026-05-17"
+        },
+        {
+            "tournament_name": "Hamburg Open",
+            "category": "ATP 500",
+            "surface": "Clay",
+            "draws": 32,
+            "start_date": "2026-05-17",
+            "end_date": "2026-05-23"
+        },
+        {
+            "tournament_name": "Roland Garros",
+            "category": "Grand Slam",
+            "surface": "Clay",
+            "draws": 128,
+            "start_date": "2026-05-24",
+            "end_date": "2026-06-06"
+        },
+        {
+            "tournament_name": "Wimbledon",
+            "category": "Grand Slam",
+            "surface": "Grass",
+            "draws": 128,
+            "start_date": "2026-06-29",
+            "end_date": "2026-07-12"
+        },
+        {
+            "tournament_name": "National Bank Open",
+            "category": "ATP Masters 1000",
+            "surface": "Hard",
+            "draws": 96,
+            "start_date": "2026-08-02",
+            "end_date": "2026-08-09"
+        },
+        {
+            "tournament_name": "Cincinnati Open",
+            "category": "ATP Masters 1000",
+            "surface": "Hard",
+            "draws": 96,
+            "start_date": "2026-08-13",
+            "end_date": "2026-08-23"
+        },
+        {
+            "tournament_name": "US Open",
+            "category": "Grand Slam",
+            "surface": "Hard",
+            "draws": 128,
+            "start_date": "2026-08-23",
+            "end_date": "2026-09-05"
+        },
+        {
+            "tournament_name": "Shanghai Masters",
+            "category": "ATP Masters 1000",
+            "surface": "Hard",
+            "draws": 96,
+            "start_date": "2026-10-07",
+            "end_date": "2026-10-18"
+        },
+        {
+            "tournament_name": "Paris Masters",
+            "category": "ATP Masters 1000",
+            "surface": "Indoor Hard",
+            "draws": 56,
+            "start_date": "2026-11-02",
+            "end_date": "2026-11-08"
+        },
+        {
+            "tournament_name": "Nitto ATP Finals",
+            "category": "ATP Finals",
+            "surface": "Indoor Hard",
+            "draws": 8,
+            "start_date": "2026-11-15",
+            "end_date": "2026-11-22"
+        }
+    ]
+}

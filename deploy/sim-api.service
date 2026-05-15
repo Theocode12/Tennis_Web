@@ -1,0 +1,26 @@
+[Unit]
+Description=Game Simulation API
+After=network.target
+
+[Service]
+Type=simple
+User=devval
+Group=www-data
+
+WorkingDirectory=/opt/apps/sim-api
+Environment=PATH=/opt/apps/sim-api/.venv/bin
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/opt/apps/sim-api
+
+RuntimeDirectory=sim-api
+RuntimeDirectoryMode=0755
+
+ExecStart=/opt/apps/sim-api/.venv/bin/uvicorn main:app \
+    --uds /run/sim-api/sim-api.sock \
+    --workers 2
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
