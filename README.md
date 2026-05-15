@@ -7,12 +7,13 @@
 ### **1.1 Project Overview**
 The **Tennis Simulation & Streaming System** is a real-time tennis game simulation engine designed for relaxation and enjoyment. Whether you want to **spectate AI matches**, **challenge a friend**, or **play against AI**, the system offers a seamless and engaging experience. It features **WebSocket-based live streaming**, customizable game rules, and built-in video & audio communication for multiplayer matches.
 
-### **1.2 Key Features**
-- 🎾 **Create & Play Your Game**: Set up a match and compete with friends or AI.
-- 🏟 **Spectator Mode**: Watch live AI vs. AI and player matches in real-time.
-- 🔄 **Live Streaming**: Game results are streamed gradually for a realistic experience.
-- 🎥 **Video & Audio Communication**: Built-in video calls for multiplayer matches.
+### **1.2 Key Features**  
+- 🎾 **Create & Play Your Game**: Set up a match and compete with friends or AI.  
+- 🏟 **Spectator Mode**: Watch live AI vs. AI and player matches in real-time.  
+- 🔄 **Live Streaming**: Game results are streamed gradually for a realistic experience.  
+- 🎥 **Video & Audio Communication**: Built-in video calls for multiplayer matches.  
 - ⚙ **Highly Configurable Rules**: Customize game, set, and match conditions to fit your style.
+- 🤖 AI Commentary: Real-time AI-generated insights and play-by-play analysis to enhance your match experience.
 
 ---
 
