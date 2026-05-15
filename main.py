@@ -26,6 +26,9 @@ setup_cors(app)
 app.state.sio = sio
 app.state.socket_app = socket_app
 
+@app.get("/health", tags=["health"])
+def health():
+    return {"status": "ok"}
 
 app.include_router(v1_router)
 app.mount("/", app.state.socket_app)
