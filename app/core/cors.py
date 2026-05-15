@@ -1,6 +1,6 @@
-from fastapi.middleware.cors import CORSMiddleware
-
 from os import getenv
+
+from fastapi.middleware.cors import CORSMiddleware
 
 frontend_url = getenv("SIM_FRONTEND_URL", "http://localhost:8080")
 
