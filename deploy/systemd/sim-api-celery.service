@@ -15,7 +15,7 @@ Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONPATH=/opt/apps/sim-api
 
 ExecStart=/opt/apps/sim-api/.venv/bin/celery \
-    -A main.celery_app worker \
+    -A main.celery worker \
     --loglevel=info
 
 Restart=always
