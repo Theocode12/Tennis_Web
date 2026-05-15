@@ -1,0 +1,25 @@
+[Unit]
+Description=Sim API Celery Worker
+After=network.target redis.service
+Requires=redis.service
+
+[Service]
+Type=simple
+User=devval
+Group=www-data
+
+WorkingDirectory=/opt/apps/sim-api
+
+Environment=PATH=/opt/apps/sim-api/.venv/bin
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/opt/apps/sim-api
+
+ExecStart=/opt/apps/sim-api/.venv/bin/celery \
+    -A main.celery_app worker \
+    --loglevel=info
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
