@@ -4,7 +4,7 @@ import json
 import logging
 from configparser import ConfigParser
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import redis.asyncio as redis
@@ -51,6 +51,8 @@ def pytest_runtest_setup(item):
 def redis_client_sync():
     import redis as redis_sync
 
+    if not REDIS_AVAILABLE:
+        return AsyncMock()
     return redis_sync.Redis(host="localhost", port=6379, db=15, decode_responses=True)
 
 
@@ -126,13 +128,19 @@ def valid_config(tmp_path: Path) -> ConfigParser:
 
 @pytest.fixture
 async def redis_client():
-    client = redis.Redis.from_url("redis://localhost:6379/15", decode_responses=True)
-    try:
-        await client.ping()
-        yield client
-    finally:
-        await client.flushdb()
-        await client.aclose()
+    if not REDIS_AVAILABLE:
+        mock = AsyncMock()
+        mock.hget = AsyncMock(return_value=None)
+        mock.hgetall = AsyncMock(return_value={})
+        yield mock
+    else:
+        client = redis.Redis.from_url("redis://localhost:6379/15", decode_responses=True)
+        try:
+            await client.ping()
+            yield client
+        finally:
+            await client.flushdb()
+            await client.aclose()
 
 
 @pytest.fixture
@@ -184,10 +192,16 @@ def mock_media_env(tmp_path: Path):
 
 @pytest.fixture(autouse=True)
 async def clear_redis_state():
-    client = redis.Redis.from_url("redis://localhost:6379/15", decode_responses=True)
-    await client.flushdb()
-    await client.aclose()
+    if REDIS_AVAILABLE:
+        client = redis.Redis.from_url("redis://localhost:6379/15", decode_responses=True)
+        try:
+            await client.flushdb()
+        finally:
+            await client.aclose()
     yield
-    client = redis.Redis.from_url("redis://localhost:6379/15", decode_responses=True)
-    await client.flushdb()
-    await client.aclose()
+    if REDIS_AVAILABLE:
+        client = redis.Redis.from_url("redis://localhost:6379/15", decode_responses=True)
+        try:
+            await client.flushdb()
+        finally:
+            await client.aclose()

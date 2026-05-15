@@ -15,7 +15,10 @@ from utils.load_config import load_config
 
 # Helper fixture to override dependencies
 @pytest.fixture
-async def client(valid_config: ConfigParser) -> AsyncGenerator[AsyncClient, None]:
+async def client(valid_config: ConfigParser, is_redis_live: bool) -> AsyncGenerator[AsyncClient, None]:
+    if not is_redis_live:
+        pytest.skip("Redis server not available at localhost:6379")
+
     # Ensure Redis is initialized for the tests
     app.dependency_overrides[load_config] = lambda: valid_config
     app.dependency_overrides[get_app_config] = lambda: valid_config
