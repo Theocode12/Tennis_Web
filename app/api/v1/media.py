@@ -1,6 +1,7 @@
 import logging
 import shutil
 import uuid
+from os import getenv
 from pathlib import Path
 from typing import Annotated
 
@@ -42,7 +43,7 @@ async def get_playlist_details(
     if songs is None:
         raise HTTPException(status_code=404, detail="Playlist not found")
 
-    base_url = str(request.base_url).rstrip("/")
+    base_url = getenv("API_BASE_URL", "http://localhost:8080").rstrip("/")
 
     return [
         {

@@ -41,7 +41,15 @@ class BaseGameFeeder(ABC):
         self.batch_size = batch_size
         self._buffer = deque()
         self._exhausted = False
+        self._consumed_count = 0
         self.logger = logger or get_logger(self.__class__.__name__)
+
+    @property
+    def consumed_count(self) -> int:
+        return self._consumed_count
+
+    def set_consumed_count(self, count: int) -> None:
+        self._consumed_count = count
 
     @abstractmethod
     async def _load_batch(self) -> list[Any]:
@@ -77,6 +85,7 @@ class BaseGameFeeder(ABC):
                 await self._refill_buffer()
 
             if self._buffer:
+                self._consumed_count += 1
                 yield self._buffer.popleft()
 
     async def _refill_buffer(self) -> None:
@@ -143,6 +152,10 @@ class RedisGameFeeder(BaseGameFeeder):
         self.score_key = f"{self.game_id}:scores"
         self.cursor = 0
         self._game_details: dict[str, Any] | None = None
+
+    def set_consumed_count(self, count: int) -> None:
+        self._consumed_count = count
+        self.cursor = count
 
     async def get_game_details(self) -> dict[str, Any]:
         """
@@ -238,6 +251,7 @@ class RedisGameFeeder(BaseGameFeeder):
 
         async with self.storage.get_client() as client:
             list_length = await self._get_length(client, self.score_key)
+            self.logger.debug(f"List length for game_id={self.game_id}: {list_length}")
 
             if self.cursor >= list_length:
                 self.logger.debug(f"No more scores to load for game_id={self.game_id}")
@@ -342,5 +356,6 @@ class FileGameFeeder(BaseGameFeeder):
             self.logger.error(f"Game file not found: {self.file_path}")
             raise FileNotFoundError(f"Game file not found: {self.file_path}")
 
-        self._exhausted = True  # All data loaded at once
-        return cast(list[Any], data.get("scores", []))
+        self._exhausted = True
+        all_scores: list[Any] = cast(list[Any], data.get("scores", []))
+        return all_scores[self._consumed_count :]

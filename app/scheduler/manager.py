@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import configparser
+import json
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -9,7 +10,7 @@ from typing import Any
 from app.broker.message_broker import MessageBroker
 from app.scheduler.game_feeder import BaseGameFeeder
 from app.scheduler.game_feeder_factory import create_game_feeder
-from app.scheduler.scheduler import BaseScheduler, GameScheduler
+from app.scheduler.scheduler import BaseScheduler, GameScheduler, SchedulerState
 from db.redis_storage import RedisStorageSingleton as RedisStorage
 from utils.get_db_client import get_redis_client
 from utils.load_config import load_config
@@ -187,80 +188,6 @@ class SchedulerManager:
                 self._scheduler_tasks.pop(context.game_id, None)
                 self._scheduler_contexts.pop(context.game_id, None)
                 raise RuntimeError(f"Scheduler creation failed for {context.game_id}") from e
-
-    # def _handle_task_completion(self, task: asyncio.Task[None]) -> None:
-    #     """
-    #     Handle completion of a scheduler task, scheduling cleanup.
-
-    #     Args:
-    #         task: The completed asyncio Task.
-    #     """
-    #     try:
-    #         task_name = task.get_name()
-    #         if not task_name.startswith("scheduler_run_"):
-    #             self.logger.error(f"Invalid task name format: {task_name}")
-    #             return
-
-    #         game_id = task_name.split("scheduler_run_", 1)[-1]
-    #         if task.cancelled():
-    #             self.logger.info(f"Scheduler task for {game_id} was cancelled.")
-    #         elif task.exception():
-    #             self.logger.error(
-    #                 f"Scheduler for {game_id} failed: {task.exception()}",
-    #                 exc_info=True,
-    #             )
-    #         else:
-    #             self.logger.info(f"Scheduler task for {game_id} completed normally.")
-
-    #         context = self._scheduler_contexts.pop(game_id, None)
-    #         if context and context.tournament_id and context.source == "tournament_engine":
-    #             self.logger.info(f"Scheduler context for {game_id} removed.")
-    #             redis = await get_redis_client(self.config)
-    #             await redis.xadd(
-    #                 self.config["background"]["StreamKey"],
-    #                 {
-    #                     "type": "MATCH_FINISHED",
-    #                     "match_id": game_id,
-    #                     "tournament_id": context.tournament_id,
-    #                 },
-    #                 maxlen=config.getint("background", "StreamMaxLength", fallback=1000),
-    #             )
-
-    #         cleanup = asyncio.create_task(self.cleanup_scheduler(game_id))
-    #         self._background_tasks.add(cleanup)
-    #         cleanup.add_done_callback(self._background_tasks.discard)
-
-    #     except Exception as e:
-    #         self.logger.error(f"Error in _handle_task_completion: {e}", exc_info=True)
-
-    # async def cleanup_scheduler(self, game_id: str) -> None:
-    #     """
-    #     Cancel and remove the scheduler and task for a specific game.
-
-    #     Args:
-    #         game_id: Game identifier to clean up.
-    #     """
-    #     scheduler = self._schedulers.pop(game_id, None)
-    #     task = self._scheduler_tasks.pop(game_id, None)
-    #     self._scheduler_contexts.pop(game_id, None)
-
-    #     if scheduler is None and task is None:
-    #         self.logger.warning(f"No active scheduler found for cleanup: {game_id}")
-    #         return
-
-    #     self.logger.info(f"Cleaning up scheduler for game {game_id}...")
-
-    #     if task and not task.done():
-    #         self.logger.info(f"Cancelling task for game {game_id}...")
-    #         task.cancel()
-    #         try:
-    #             await asyncio.wait_for(task, timeout=2.0)
-    #             self.logger.info(f"Task for game {game_id} cancelled successfully.")
-    #         except asyncio.TimeoutError:
-    #             self.logger.warning(f"Timeout while cancelling task for {game_id}.")
-    #         except Exception as e:
-    #             self.logger.error(f"Error during task cancellation: {e}", exc_info=True)
-    #     self.logger.info(f"Scheduler cleanup for game {game_id} complete.")
 
     def _handle_task_completion(self, task: asyncio.Task[None]) -> None:
         """
@@ -448,6 +375,152 @@ class SchedulerManager:
             "Scheduler cleanup for game %s complete.",
             game_id,
         )
+
+    async def recover_games(self) -> int:
+        """
+        Recover game schedulers from persisted state after a restart.
+
+        Scans Redis for live game registry keys and restores schedulers
+        that were running before the server was shut down or crashed.
+
+        Returns:
+            int: Number of schedulers successfully recovered.
+        """
+        if not self.config.getboolean("liveGameRegistry", "enabled", fallback=False):
+            self.logger.info("liveGameRegistry disabled; skipping game recovery.")
+            return 0
+
+        prefix = self.config.get(
+            "liveGameRegistry",
+            "redisKeyPrefix",
+            fallback="live:game",
+        )
+
+        try:
+            redis = await get_redis_client(self.config)
+        except Exception as e:
+            self.logger.error(f"Failed to connect to Redis for game recovery: {e}")
+            return 0
+
+        pattern = f"{prefix}:*"
+        recovered = 0
+        cursor = 0
+        recoverable_states = {"ongoing", "paused", "autoplay"}
+
+        self.logger.info("Scanning for recoverable game schedulers...")
+
+        while True:
+            cursor, keys = await redis.scan(cursor=cursor, match=pattern)
+
+            if keys:
+                values = await redis.mget(*keys)
+
+                for raw in values:
+                    if not raw:
+                        continue
+
+                    try:
+                        data = json.loads(raw)
+                    except json.JSONDecodeError:
+                        self.logger.warning("Skipping malformed recovery state entry")
+                        continue
+
+                    game_state = str(data.get("game_state", "")).lower()
+
+                    if game_state not in recoverable_states:
+                        continue
+
+                    game_id = data.get("game_id")
+                    if not game_id:
+                        self.logger.warning("Skipping recovery entry without game_id")
+                        continue
+
+                    if self.has_scheduler(game_id):
+                        self.logger.warning(
+                            "Scheduler already exists for game %s; skipping recovery",
+                            game_id,
+                        )
+                        continue
+
+                    recovery = data.get("_recovery", {})
+                    consumed_count = recovery.get("consumed_count", 0)
+                    speed = recovery.get("speed", 1.0)
+
+                    tournament_id = None
+                    mc = data.get("match_context") or {}
+                    tournament = mc.get("tournament") or {}
+                    tournament_id = tournament.get("tournament_id")
+
+                    context = SchedulerContext(
+                        game_id=game_id,
+                        tournament_id=tournament_id,
+                        source="recovery",
+                    )
+
+                    try:
+                        feeder = self._create_feeder(game_id)
+                        feeder.set_consumed_count(consumed_count)
+
+                        state_publisher = await self._create_state_publisher()
+
+                        scheduler = GameScheduler(
+                            game_id=game_id,
+                            broker=self._broker,
+                            feeder=feeder,
+                            state_publisher=state_publisher,
+                            config=self.config,
+                            logger=self.logger,
+                        )
+
+                        scheduler.speed = speed
+                        if data.get("latest_score") is not None:
+                            scheduler.latest_score = data["latest_score"]
+
+                        task = asyncio.create_task(
+                            scheduler.run(),
+                            name=f"scheduler_run_{game_id}",
+                        )
+
+                        self._schedulers[game_id] = scheduler
+                        self._scheduler_tasks[game_id] = task
+                        self._scheduler_contexts[game_id] = context
+
+                        task.add_done_callback(self._handle_task_completion)
+
+                        if game_state in ("ongoing", "autoplay"):
+                            await scheduler.start()
+                        elif game_state == "paused":
+                            scheduler.state = SchedulerState.PAUSED
+
+                        self.logger.info(
+                            "Recovered scheduler for game %s (consumed_count=%s, state=%s, speed=%s)",
+                            game_id,
+                            consumed_count,
+                            game_state,
+                            speed,
+                        )
+                        recovered += 1
+
+                    except Exception as e:
+                        self.logger.error(
+                            "Failed to recover scheduler for game %s: %s",
+                            game_id,
+                            e,
+                            exc_info=True,
+                        )
+                        self._schedulers.pop(game_id, None)
+                        self._scheduler_tasks.pop(game_id, None)
+                        self._scheduler_contexts.pop(game_id, None)
+
+            if cursor == 0:
+                break
+
+        if recovered:
+            self.logger.info("Recovered %s game scheduler(s) from previous session.", recovered)
+        else:
+            self.logger.info("No recoverable game schedulers found.")
+
+        return recovered
 
     async def shutdown(self) -> None:
         """

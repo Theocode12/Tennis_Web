@@ -160,6 +160,11 @@ class GameScheduler(BaseScheduler):
             "latest_score": self.latest_score,
             "created_at": self.created_at,
             **game_details,
+            "_recovery": {
+                "consumed_count": self.feeder.consumed_count,
+                "speed": self.speed,
+                "updated_at": time.time(),
+            },
         }
 
     async def _publish_snapshot(self) -> None:
@@ -245,6 +250,8 @@ class GameScheduler(BaseScheduler):
         # Publish initial snapshot (NOT_STARTED or initial metadata)
         await self._publish_snapshot()
 
+        _ran_to_completion = False
+
         try:
             score_iterator: AsyncGenerator[Any, None] = self.feeder.get_next_score()
 
@@ -261,7 +268,7 @@ class GameScheduler(BaseScheduler):
                     self._format_score_update_payload(score),
                 )
 
-                # Update snapshot for discovery
+                # Update snapshot for discovery and recovery
                 await self._publish_snapshot()
 
                 # Controlled pacing
@@ -277,6 +284,8 @@ class GameScheduler(BaseScheduler):
                         raise
                 finally:
                     self.score_update_sleep_task = None
+
+            _ran_to_completion = True
 
         except Exception:
             self.logger.exception(f"Run loop error for game_id={self.game_id}")
@@ -300,10 +309,13 @@ class GameScheduler(BaseScheduler):
             await self.feeder.cleanup()
 
             if self.state_publisher:
-                try:
-                    await self.state_publisher.cleanup(game_id=self.game_id)
-                except Exception:
-                    self.logger.exception("Failed to cleanup scheduler state snapshot")
+                if _ran_to_completion:
+                    try:
+                        await self.state_publisher.cleanup(game_id=self.game_id)
+                    except Exception:
+                        self.logger.exception("Failed to cleanup scheduler state snapshot")
+                else:
+                    self.logger.info("Scheduler did not complete; state key preserved for recovery.")
 
             self.logger.info(f"Scheduler finished for game_id={self.game_id}.")
 
