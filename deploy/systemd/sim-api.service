@@ -11,13 +11,14 @@ WorkingDirectory=/opt/apps/sim-api
 Environment=PATH=/opt/apps/sim-api/.venv/bin
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONPATH=/opt/apps/sim-api
+EnvironmentFile=/opt/apps/sim-api/.env
 
 RuntimeDirectory=sim-api
 RuntimeDirectoryMode=0755
 
 ExecStart=/opt/apps/sim-api/.venv/bin/uvicorn main:app \
     --uds /run/sim-api/sim-api.sock \
-    --workers 2
+    --workers 1
 
 Restart=always
 RestartSec=5
